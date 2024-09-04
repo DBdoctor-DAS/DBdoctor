@@ -2,7 +2,7 @@
 
 ## OceanBase纳管架构
 
-![纳管架构](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesOceanbase/ManagementArchitecture.png)
+![纳管架构](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesOceanbase/ManagementArchitecture.png)
 
 DBdoctor按照节点级别进行分别纳管，只需要找个ecs服务器进行一键安装部署，然后全流程web界面操作即可完成纳管OceanBase的实例。agent以主机维度进行部署，一个主机只需要部署一个agent即可完成对主机上所有的数据库节点进行指标采集。
 
@@ -19,7 +19,7 @@ DBdoctor按照节点级别进行分别纳管，只需要找个ecs服务器进行
 #解压安装包并执行一条命令即可部署完成
 ./dbd -I
 ```
-![安装](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesOceanbase/Install.png)
+![安装](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesOceanbase/Install.png)
 
 **服务访问地址**：http://<部署服务的主机ip>:13000
 **登录账号**：tester/Root2023!
@@ -37,7 +37,7 @@ GRANT SELECT, PROCESS, SHOW VIEW ON *.* TO 'zx'@'%';
 - 点击“实例纳管”按钮录入实例的数据库访问地址、账号密码等基本信息，然点击连通性检测提示Sucess表示校验正确。
 
 - 默认采用agent方式进行数据采集，录入主机账号信息，支持自动和手动两种方式进行agent安装。
-![实例纳管](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesOceanbase/InstanceManagement.png)
+![实例纳管](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesOceanbase/InstanceManagement.png)
 
 **备注**：agent系统支持说明:支持 X86_64 和ARM系统，不支持x86_32服务器。两个连通性检测都通过，恭喜你实例纳管成功，即可开启性能诊断。
 
@@ -50,7 +50,7 @@ GRANT SELECT, PROCESS, SHOW VIEW ON *.* TO 'zx'@'%';
 
 点击性能洞察透视OceanBase的节点性能。
 
-![节点性能](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesOceanbase/NodePerformance.png)
+![节点性能](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesOceanbase/NodePerformance.png)
 
 性能洞察功能可将硬资源和数据库等多维度的指标性能数据通过时间轴关联起来，并进行分析。比如上面的**CPU异常的Case**我们只需要**1步走即可找到问题根因SQL**，同时可以**还原**异常时间区间**详细现场**。
 

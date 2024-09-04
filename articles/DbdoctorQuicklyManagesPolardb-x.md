@@ -2,7 +2,7 @@
 
 近日，DBdoctor（V3.1.0）正式通过了阿里云PolarDB分布式版（V2.3）产品集成认证测试，并获得阿里云颁发的产品生态集成认证。
 
-![DBdoctor快速纳管PolarDB-X](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesPolardb-x/PolarDB.png)
+![DBdoctor快速纳管PolarDB-X](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/PolarDB.png)
 
 本文将介绍PolarDB的特性，以及如何快速纳管数据库PolarDB-X。
 
@@ -13,7 +13,7 @@ PolarDB-X 是阿里自主设计的高性能云原生分布式数据库产品，�
 
 ##### PolarDB-X架构图
 
-![架构图](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesPolardb-x/ArchitectureDiagram.png)
+![架构图](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/ArchitectureDiagram.png)
 
 ##### PolarDB-X 采用 Shared-nothing 与存储计算分离架构进行设计，系统由4个核心组件组成：
 
@@ -62,7 +62,7 @@ PolarDB-X 是阿里自主设计的高性能云原生分布式数据库产品，�
 
 https://openpolardb.com/download
 
-![RPM包](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesPolardb-x/rpm.png)
+![RPM包](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/rpm.png)
 
 
 #### b）PolarDB-X数据库安装和登录
@@ -126,7 +126,7 @@ https://www.hisensecloud.com/col.jsp?id=126
 ```Bash
 ./dbd -I
 ```
-![RPM包](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesPolardb-x/zip.png)
+![RPM包](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/zip.png)
 
 
 安装成功后登录http://<部署服务的主机ip>:13000
@@ -138,7 +138,7 @@ https://www.hisensecloud.com/h-col-144.html
 
 在部署的PolarDB-X进程层面我们能看到几乎和MySQL的集群一致，DBdoctor可以完全按照MySQL的方式进行纳管。DBdoctor的PolarDB-X纳管是按照集群的DN节点维度进行纳管的(DN在进程层面相当于mysqld)，上面三个节点相当于对每个节点进行依次纳管。
 
-![纳管](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesPolardb-x/Nanotube.png)
+![纳管](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/Nanotube.png)
 
 #### a）首先在PolarDB-X上创建数据库账号并授予权限
 ```Bash
@@ -157,30 +157,30 @@ GRANT SELECT, PROCESS, SHOW VIEW ON *.* TO 'zx'@'%';
 
 - 可进行数据库实例的连通性检测
 
-![录入实例](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesPolardb-x/InputInstance.png)
+![录入实例](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/InputInstance.png)
 
 ##### ② 配置数据洞察
 > 设置洞察日志存储的天数（默认为10天）
 ##### ③ 选择采集方式
 针对PolarDB-X数据采集方式选择部署Agent，用来采集主机和实例性能数据，锁和审计日志相关当前版本还不支持，后续会考虑对该引擎的适配支持。
 
-![数据采集](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesPolardb-x/DataAcquisition.png)
+![数据采集](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/DataAcquisition.png)
 
 ## 03. 如何使用DBdoctor对PolarDB-X进行性能诊断
 
 ### 1）开启性能分析
 
 查看实例列表找到PolarDB-X的纳管数据库节点，点击该实例节点的性能分析开关就可以对该实例进行性能洞察功能接管。PolarDB-X的锁分析功能暂未开放（审计日志和4大锁场景诊断），需要后续版本GA后才能支持该功能。
-![性能分析](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesPolardb-x/PerformanceAnalysis.png)
+![性能分析](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/PerformanceAnalysis.png)
 
 ### 2）查看性能洞察
 点击性能洞察按钮进行该实例的性能分析。
 
-![性能洞察](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesPolardb-x/PerformanceInsight.png)
+![性能洞察](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/PerformanceInsight.png)
 
 点击后可以查看该实例的性能洞察分析结果。
 
-![分析结果](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/DbdoctorQuicklyManagesPolardb-x/AnalysisResult.png)
+![分析结果](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/AnalysisResult.png)
 
 #### 性能洞察的详细功能主要分为下面7个部分：
 

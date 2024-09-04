@@ -9,7 +9,7 @@
 eBPF (extended Berkeley Packet Filter)是一种在Linux内核中执行代码的技术，它允许开发人员在不修改内核代码的情况下运行特定的功能。传统的BPF 只能用于网络过滤，而 eBPF则更加强大和灵活，有更多的应用场景，包括网络监控、安全过滤和性能分析等。uprobe是eBPF的一种使用方式，它允许我们在用户空间的应用程序中插入代码来监控和分析内核中的函数调用。
 具体来说，eBPF uprobe可以在用户空间的应用程序中选择一个目标函数，并在该函数执行之前和之后插入自定义的代码逻辑。这样可以实现对目标函数的监控、性能分析、错误检测等功能。通过eBPF uprobe，我们可以在不修改内核源代码的情况下，对内核中的函数进行动态追踪和分析。
 ## 01. 工作原理
-![uprobe](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/EBPF01/uprobe.png)
+![uprobe](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/EBPF01/uprobe.png)
 uprobe是一种用户探针，uprobe探针允许在用户程序中动态插桩，插桩位置包括：函数入口、特定偏移处，以及函数返回处。当我们定义uprobe时，内核会在附加的指令上创建快速断点指令，当程序执行到该指令时，内核将触发事件，程序陷入到内核态，并以回调函数的方式调用探针函数，执行完探针函数再返回到用户态继续执行后序的指令。
 
 uprobe基于文件，当一个二进制文件中的一个函数被跟踪时，所有使用到这个文件的进程都会被插桩，这样就可以在全系统范围内跟踪系统调用。uprobe适用于在用户态去解析一些内核态探针无法解析的流量，例如http2流量（报文header被编码，内核无法解码）、https流量（加密流量，内核无法解密）等。
@@ -21,7 +21,7 @@ uprobe基于文件，当一个二进制文件中的一个函数被跟踪时，�
 
 ### 2）基于BCC工具实现探测MySQL
 
-![uprobe](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/EBPF01/bcc.png)
+![uprobe](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/EBPF01/bcc.png)
 BCC程序使用 Python 编写，它会嵌入一段 c 代码，执行时将 c 代码编译成BPF字节码加载到内核运行。而 Python 代码可以通过 perf event 从内核将数据拷贝到用户空间读取到数据然后展示出来。
 
 接下来我们将基于BCC的uprobe，写一个eBPF程序，观测MySQL上是否存在大量短连接。
@@ -116,15 +116,15 @@ while 1:
 #### f）效果演示
 执行该eBPF程序
 
-![eBPF程序](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/EBPF01/EbpfProgram.png)
+![eBPF程序](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/EBPF01/EbpfProgram.png)
 
 分别开两个窗口执行连接MySQL的命令
 
-![MySQL命令](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/EBPF01/MysqlCommand.png)
+![MySQL命令](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/EBPF01/MysqlCommand.png)
 
 打印观测的结果
 
-![观测的结果](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/EBPF01/ObservedResult.png)
+![观测的结果](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/EBPF01/ObservedResult.png)
 
 从上面的演示中我们能看到，客户端和MySQL建立连接的时候会打印日志，显示这个连接的校验时间、线程id、进程id。如果存在大量日志输出，说明数据库上一直在创建新连接（即短连接），再进行下一步分析是哪个应用程序导致的。
 ## 03. eBPF在程序开发过程中有哪些限制？

@@ -21,7 +21,7 @@ SQL规则审核能否覆盖性能的审核？我们手写一条规则来验证SQ
 #待审核的SQL如下，pur_jit_item表有自增主键id，隔离级别RR，没有其他索引
 update pur_jit_item set qualified_qty=5316 where fatory_code=7 and mat_sap_code=3
 ```
-![性能问题](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/TheMostPowerfulSqlAuditToolEver/PerformanceProblem.png)
+![性能问题](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/TheMostPowerfulSqlAuditToolEver/PerformanceProblem.png)
 
 当字段少的时候，我们从上图中可以看到SQL规则审核**命中**的**字段未加索引**是存在有**性能问题**的，但如果字段过多、部分字段存在索引、字段区分度不好等场景时，规则该如何写？很多有经验的DBA，试图通过列举所有场景的规则来实现性能识别是不可取的。从实际生产来看，要考虑的因素太多，同样的SQL在不同的数据集上的结果都可能有N种，无法准确命中。
 
@@ -30,7 +30,7 @@ update pur_jit_item set qualified_qty=5316 where fatory_code=7 and mat_sap_code=
 ## SQL性能审核灵感
 对数据库内核熟悉的应该了解过MySQL、PgSQL的SQL最优执行路径，通过Cost-based Optimization进行评估，然后进行最优路径选择。我们来看下MySQL Cost优化器评估过程。
 
-![审核灵感](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/TheMostPowerfulSqlAuditToolEver/AuditInspiration.png)
+![审核灵感](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/TheMostPowerfulSqlAuditToolEver/AuditInspiration.png)
 
 ##### 1）建立评估标准
 
@@ -46,7 +46,7 @@ Session开启OPTIMIZER_TRACE，SQL执行后，Trace日志中会记录该SQL详�
 
 数据库最终的路径选择是基于Cost标准计算出来的，外置Cost计算标准和公式即可旁路来计算Cost消耗。下来我们来从MySQL Access Type维度一起拆解Cost优化器的内核计算过程。
 
-![Cost优化器源码解读](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/TheMostPowerfulSqlAuditToolEver/CostOptimizerSourceCodeInterpretation.png)
+![Cost优化器源码解读](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/TheMostPowerfulSqlAuditToolEver/CostOptimizerSourceCodeInterpretation.png)
 
 ##### 1）源码解析Cost计算公式
 Cost的计算公式可以直接从代码中解读出来，比如以Table scan全表扫描为例，Table scan的Cost分为IO Cost跟CPU Cost两个部分之和，大致的公式为：
@@ -71,7 +71,7 @@ IO-Cost:#Pages_In_Table * IO_BLOCK_READ_COST + CPU-Cost:#Records * ROW_EVALUATE_
 
 在数据倾斜的场景中，每条SQL的where条件字段的范围值不一样，索引执行路径选择的真实Cost会不一样，**获取采样页尤为重要。下面详细介绍SQL性能评估的流程：**
 
-![优化器原理](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/TheMostPowerfulSqlAuditToolEver/OptimizerPrinciple.png)
+![优化器原理](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/TheMostPowerfulSqlAuditToolEver/OptimizerPrinciple.png)
 
 1. SQL Parse解析SQL表的条件字段、查询字段。
 
@@ -88,7 +88,7 @@ IO-Cost:#Pages_In_Table * IO_BLOCK_READ_COST + CPU-Cost:#Records * ROW_EVALUATE_
 ## 表维度全局最优如何实现？
 单条SQL的性能评估可以按照上面的方式实现，但在实际生产中由于索引本身的维护是需要消耗资源的，因此索引不是越多越好，需要建立全局最优的索引，按照DBA的经验可采取“去冗余”和“去未使用索引”两种方式来进行优化，但在实际中往往由于担心对业务有性能影响而不敢进行索引的操作，只做加法不做减法。**下面将详细展开如何从表维度求全局最优解：**
 
-![全局最优如何实现](https://github.com/DBdoctor-DAS/DBdoctor/blob/mainimages/TheMostPowerfulSqlAuditToolEver/HowIsGlobalOptimizationImplemented.png)
+![全局最优如何实现](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/TheMostPowerfulSqlAuditToolEver/HowIsGlobalOptimizationImplemented.png)
 
 
 1. SQLParse解析SQL对应的库表、字段，并进行最优索引的推荐。
