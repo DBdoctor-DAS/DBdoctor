@@ -1,5 +1,5 @@
 <h2 align="center">
-  <img width="280" src="https://50001070.s21i.jzaliusr.com/4/ABUIABAEGAAg1fLrtQYokKnlhQMwqgI4PQ.png" >
+  <img width="280" src="./images/logo.png" >
   <p>DBdoctor，致力于解决数据库的一切性能问题</p>
   <div align="center">
     <a>
