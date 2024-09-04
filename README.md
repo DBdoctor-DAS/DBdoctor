@@ -1,9 +1,21 @@
-# DBdoctor，致力于解决数据库的一切性能问题
+<h2 align="center">
+  <img width="280" src="https://50001070.s21i.jzaliusr.com/4/ABUIABAEGAAg1fLrtQYokKnlhQMwqgI4PQ.png" >
+  <p>DBdoctor，致力于解决数据库的一切性能问题</p>
+  <div align="center">
+    <a>
+        <img src="https://img.shields.io/badge/author-DBdoctor-DAS.svg">
+    </a>
+    <a>
+        <img src="https://img.shields.io/github/license/DBdoctor-DAS/DBdoctor.svg">
+    </a>
+  </div>
+</h2>
+DBdoctor是一款内核级数据库性能诊断软件，致力于解决数据库的一切性能问题。
+就像对数据库做全身CT，帮助您一分钟内找到数据库性能问题，实现数据库性能诊断百倍提效。
+针对数据库性诊断门槛高、耗时长的问题，DBdoctor提供了快速易用的解决方案，
+基于海量数据实时分析技术，深入到数据库内核，提供精准的诊断分析和优化建议。
 
-![author](https://img.shields.io/badge/author-DBdoctor-DAS.svg)![issues](https://img.shields.io/github/issues/DBdoctor-DAS/DBdoctor.svg)![stars](https://img.shields.io/github/stars/DBdoctor-DAS/DBdoctor.svg)![forks](https://img.shields.io/github/forks/DBdoctor-DAS/DBdoctor.svg)![license](https://img.shields.io/github/license/DBdoctor-DAS/DBdoctor.svg)
-
-
-
+[English Version](./README.md)
 ## 索引
 
 
@@ -16,7 +28,9 @@
 ## 简介
 
 - [DBdoctor简介](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/dbdoctor-introduce.md)
-
+- [下载安装包](https://jhktob.oss-cn-beijing.aliyuncs.com/DBdoctorV3.2.3_20240820_x86.tar.gz)
+- [在线试用]((https://demo.dbdoctor.cn/))
+- [产品文档](https://demo.dbdoctor.cn/modules/dbDoctor/mdPreview/index.html?readme=help#/)
 
 ## 技术相关
 - [Docker Hub无法访问，DBdoctor的应对之策](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DockerhubCannotBeAccessed.md)
