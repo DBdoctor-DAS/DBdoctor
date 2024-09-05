@@ -27,10 +27,11 @@ Based on real-time analysis technology of massive data, we delve into the databa
 - [Product documentation](https://demo.dbdoctor.cn/modules/dbDoctor/mdPreview/index.html?readme=help#/)
 
 ## Technology related articles
+- [DBA required! How do I use DBdoctor for index recommendations](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/HowDoIUseDbdoctorForIndexRecommendations.md)
 - [Docker Hub cannot be accessed, DBdoctor's response](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DockerhubCannotBeAccessed.md)
 - [Database index recommendation big PK, the ultimate competition between DBdoctor and senior DBAs](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DatabaseIndexRecommendedLargePk.md)
 - [Dragon Boat Festival Special Edition: Do You Really Understand Database Indexing?](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DoYouReallyKnowAnythingAboutDatabaseIndexing.md)
-- [Can the performance of using bee (eBPF) to track dolphins (MySQL) catch up?](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/UseEbpfToTrackMysql.md)
+
 - [The locked elephant (Postgres), how to race against MySQL](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/TheChainedElephant.md)
 - [The strongest SQL audit tool in history, seeking challenge!](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/TheMostPowerfulSqlAuditToolEver.md)
 
@@ -46,5 +47,6 @@ Based on real-time analysis technology of massive data, we delve into the databa
 ## Tutorial related articles
 
 - EBPF
-  - [eBPF Special Topic 1 | Teach You How to Diagnose MySQL with eBPF (Including Source Code)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF01.md)
+  - [eBPF Practical Tutorial 1 | Teach You How to Diagnose MySQL with eBPF (Including Source Code)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF01.md)
   - [eBPF Practical Tutorial 2 | The most accurate quantification method for database network traffic (Including Source Code)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF02.md)
+  - [eBPF Practical Tutorial 4 | Can the performance of using bee (eBPF) to track dolphins (MySQL) catch up?](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/UseEbpfToTrackMysql.md)
