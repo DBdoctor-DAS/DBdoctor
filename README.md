@@ -1,6 +1,6 @@
 <h2 align="center">
 
-  <img width="280" src="https://50001070.s21i.jzaliusr.com/4/ABUIABAEGAAg1fLrtQYokKnlhQMwqgI4PQ.png" >
+  <img width="280" src="./images/logo.png" >
     <p> DBdoctor, dedicated to solving all performance issues of the database </p>
 
   <div align="center">
