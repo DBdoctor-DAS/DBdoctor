@@ -1,7 +1,7 @@
-# 数据库索引推荐大PK，DBdoctor和资深DBA的终极较量
+# Database index recommendation big PK, the ultimate competition between DBdoctor and senior DBAs
 
-## 前言
-在上一篇文章[《端午特别篇：你真的了解数据库索引吗？》](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DoYouReallyKnowAnythingAboutDatabaseIndexing.md)中，纪宽针对一个业务SQL推荐索引优化问题提出了疑问。他发现DBdoctor推荐的索引组合（status, purchase_date,device_name, device_id）似乎与他作为DBA凭借多年经验推荐的索引方案大相径庭。DBdoctor与资深DBA之间究竟孰对孰错？我们将在本文中详细解密DBdoctor和资深DBA的PK结果，我将用实际的验证和剖析来狠狠地抽打他！
+## Preface
+In the previous article ["Dragon Boat Festival Special Edition: Do You Really Understand Database Indexes?"](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DoYouReallyKnowAnythingAboutDatabaseIndexing.md) In this article, Ji Kuan raised a question about a business SQL recommended index optimization problem. He found that the index combination (status, purchase_date, device_name, device_id) recommended by DBdoctor seemed to be very different from the index scheme recommended by him as a DBA with many years of experience. Who is right or wrong between DBdoctor and senior DBA? In this article, we will decipher the PK results of DBdoctor and senior DBA in detail, and I will use actual verification and analysis to beat him hard!
 
 ```SQL
 SELECT *
@@ -12,25 +12,25 @@ WHERE
     AND status = 'active' and device_id>=0
   AND device_name like '%162b%'
 ```
-## SQL分析
+## SQL analysis
 
-为了验证上述推荐索引的准确性，我们将DBA经验推荐的索引和DBdoctor推荐的索引都加上去，最终交给MySQL自己，看它究竟会选择哪个索引。
+In order to verify the accuracy of the above recommended indexes, we added the indexes recommended by DBA experience and DBdoctor, and finally handed them over to MySQL itself to see which index it would choose.
 
-- DBA推荐的：
+- Recommended by DBA:
 
 ```SQL
 KEY `dbdoctor_idx_status_purchase_date` (`status`,`purchase_date`）
 ```
-- DBdoctor推荐的：
+- Recommended by DBdoctor:
 ```SQL
 KEY `dbdoctor_idx_status_purchase_date_device_name_device_id` (`status`,`purchase_date`,`device_name`,`device_id）`
 ```
 
-**DBA的结论**：认为DBdoctor推荐的不准，完全不符合MySQL的原理规则，比如最左原则和模糊匹配等，那真实情况如何呢？
+**DBA's conclusion**：that DBdoctor's recommendation is not accurate, completely inconsistent with the principles and rules of MySQL, such as the leftmost principle and fuzzy match, what is the real situation?
 
-## 手动验证谁才是最优的索引
+## Manually verify who is the optimal index
 
-### 1. 给device表增加上面三个索引，表结构如下：
+### 1. Add the above three indexes to the device table, and the table structure is as follows:
 ```SQL
 CREATE TABLE `device` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -47,67 +47,66 @@ CREATE TABLE `device` (
   KEY `dbdoctor_idx_status_purchase_date` (`status`,`purchase_date`)
 ) ENGINE=InnoDB AUTO_INCREMENT=20446488 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
 ```
-索引采样page和采样记录数：
+Number of index sampling pages and sampling records:
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnvgiaHYkP7H9bhQcAN1ozjOFonK4pz559AwczhhNRMMGpNH4QkS4xm4znhX2EuNhiaThU3gXQNRmFw/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-### 2. 开启trace查看SQL实际三个索引的cost消耗，发现DBdoctor推荐最优。
+### 2. Open trace to check the actual cost consumption of three SQL indexes, and find that DBdoctor recommends the best.
 
 ```SQL
 set session optimizer_trace="enabled=on";
 ```
 
-得到以下trace cost消耗信息，我们发现确实是DBdoctor推荐的`dbdoctor_idx_status_purchase_date_device_name_device_id这个索引是最优的，cost消耗最小。
+After obtaining the following trace cost consumption information, we found that the index recommended by DBdoctor dbdoctor_idx_status_purchase_date_device_name_device_id is the optimal one with the lowest cost consumption.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnvgiaHYkP7H9bhQcAN1ozjOs3RHliaUzVLXAOichePGxjmoOicDeCp8sX3FkXy4utaA5Cbv5r3vgLia6g/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-DBA们是不是开始怀疑人生了，为何会是这样？下面我们再进一步剖析。
+Are DBAs starting to doubt their lives? Why is that? Let's further analyze it below.
 
-## 进一步刨根问底
+## Further inquire into the root cause
 
-再回到这两个索引：
+Returning to these two indexes:
 
 ```
-DBdoctor推荐：
+DBdoctor recommendation:
 KEY `dbdoctor_idx_status_purchase_date_device_name_device_id` (`status`,`purchase_date`,`device_name`,`device_id`)
 
-DBA推荐：
+DBA recommendation:
 KEY `dbdoctor_idx_status_purchase_date` (`status`，`purchase_date`)
 ```
 
-细心的你可以发现，上面两个索引trace中有两个怀疑点：
+If you are careful, you can notice that there are two suspicious points in the two index traces above.
 
-- DBA推荐的索引开启了MRR算法
+- DBA recommended index has enabled MRR algorithm
 
-- DBdoctor推荐的索引rows和DBA推荐的索引rows竟然结果不一样
+- The index rows recommended by DBdoctor and DBA have different results
 
-下面我们来进一步分析这两个疑点：
+Now let's further analyze these two doubts:
 
-#### 1.我们仔细看下上面trace日志，发现DBA推荐的索引里还走了MRR优化算法，这个相当于多做了一次排序，然后再回表查其他字段，可以将离散IO换成顺序IO，带来性能的提升。难道是这个MRR出了问题，推荐的算法不是最优的，导致整体cost开销变大了？
+#### 1.Let's take a closer look at the trace log above and find that the MRR optimization algorithm is also included in the index recommended by the DBA. This is equivalent to doing an extra sorting and then checking other fields in the table, which can replace discrete IO with sequential IO and improve performance. Could it be that there is a problem with this MRR, and the recommended algorithm is not optimal, resulting in an increase in overall cost overhead?
 
-关闭MRR算法，验证MRR是否是它导致的COST消耗增加：
+Close the MRR algorithm and verify whether MRR is the cause of the increase in COST consumption.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnvgiaHYkP7H9bhQcAN1ozjOW3S6NFI4cSvZU1uPW9gstSvMqT5JPlrfxL2VonaqPVSwkhhxvCI2jw/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-我们发现dbdoctor_idx_status_purchase_date开启mrr反而cost开销减少很多，带来优化，cost减少 533216-509474=23742
+We found that dbdoctor_idx_status_purchase_date enable mrr, the cost overhead is reduced a lot, bringing optimization, cost reduction 533216-509474 = 23742
 
-**结论：**MRR算法是带来了优化，MySQL推荐的算法没有问题，那剩下的那个疑点Rows为何不一样呢？
+**Conclusion:**The MRR algorithm brings optimization, and the algorithm recommended by MySQL is not a problem. Why is the remaining doubt Rows different?
+#### 2.From the conclusion of the above investigation, the problem lies in the estimated number of scanned rows. We check the execution plan separately through forced indexing to see the scanned rows.
 
-#### 2.从上面排查的结论来看，问题出在预估的扫描行数上面，我们通过强制索引分别查看执行计划，看下扫描行。
-
-- DBdoctor推荐的索引的扫描行为439628
+- DBdoctor recommended index scan behavior 439628
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnvgiaHYkP7H9bhQcAN1ozjOxX0L42mUwv8D1ZVdd02fflZiabYK73eniboALp4L3lHeYUR0SXchplcw/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-- DBA推荐的索引：强制走dbdoctor_idx_purchase_date_status索引，扫描行为484744
+- DBdoctor recommended index scan behavior 439628
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnvgiaHYkP7H9bhQcAN1ozjOmKiclzt0qgFLHbzNEnGO6JqX4KexfcUfDMADc9AEAdjphopbtojTT3Q/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-DBA推荐的索引的扫描行偏大，多扫描了484744-439628=45116行记录，从MySQL源码Cost计算公式我们知道，每一条row的cost为Server层row_evalute_cost（默认为0.1），那么该索引偏大的一部分原因来自于这个扫描行。那为什么rows差异这么大呢？
+The scanned rows of the index recommended by DBA are too large, and more than 484744-439628 = 45116 rows of records are scanned. From the MySQL source code Cost calculation formula, we know that the cost of each row is the Server layer row_evalute_cost (default is 0.1), so part of the reason why the index is too large comes from this scanned row. So why is there such a big difference in rows?
 
-**我们来看下mysql源码，rows到底怎么得来的？**
+**Let's take a look at the MySQL source code. How did Rows come about?**
 
-通过GDB我们快速找到了预估rows的函数，递归函数btr_estimate_n_rows_in_range_on_level 用于估计在 B-tree 某一级别上两个槽位（slot）之间的索引行数，其大致原理如下：
+Through GDB, we quickly found the function for estimating rows. The recursion function btr_estimate_n_rows_in_range_on_level used to estimate the number of index rows between two slots at a certain level in the B-tree. The general principle is as follows:
 
 ```C
 /* 4867 */static int64_t btr_estimate_n_rows_in_range_on_level(
@@ -171,50 +170,50 @@ DBA推荐的索引的扫描行偏大，多扫描了484744-439628=45116行记录�
 /* 5002 */  return (n_rows);
 /* 5003 */}
 ```
-- 从起始页开始：
+- Starting from the start page:
 
-    从起始槽位slot1 所在的页面开始，向右扫描几个页面。
+    Starting from the page where the starting slot slot1 is located, scan several pages to the right.
 
-- 统计行数：
+- Count the number of rows:
 
-    读取每个页面，统计其包含的记录数。
+    Read each page and count the number of records it contains.
 
-- 判断是否到达目标页面：
+- Determine if the target page has been reached.
 
-如果在扫描过程中很快到达了目标槽位slot2所在的页面，则可以准确计算出 slot1 和 slot2 之间的记录数，并将 is_n_rows_exact 标志设置为 true。
+If the page where the target slot slot2 is located is reached quickly during the scanning process, the number of records between slot1 and slot2 can be accurately calculated, and the is_n_rows_exact flag is set to true.
 
-- 估算剩余页面的行数：
+- Estimate the number of rows on the remaining pages.
 
-    - 如果没有快速到达 slot2所在的页面，则计算已扫描页面中的平均记录数。
+    - If the page where slot2 is located is not reached quickly, calculate the average number of records in the scanned pages.
 
-    - 根据这个平均值，估算未扫描页面中的记录数。假设这些页面中的记录数与已扫描页面的记录数相同。
+    - Based on this average, estimate the number of records in unscanned pages. Assuming the number of records in these pages is the same as the number of records in scanned pages.
 
-    - 乘以 slot1 和 slot2之间的页面数，得出估算的总记录数。
-- 返回结果：
+    - Multiply by the number of pages between slot1 and slot2 to estimate the total number of records.
+- Return result:
 
-    返回估算的行数（不包括边界记录），并根据是否精确计算设置 is_n_rows_exact标志。该递归函数通过快速扫描初始几个页面来尝试精确计算行数，如无法精确计算，则基于平均值进行估算，以达到在性能和准确性之间的平衡。从trace中我们能看到，两个索引路径的sql拥有同样的range，但索引高度不一样，递归次数不同，页面平均记录数也不同，得出的预估rows不一样。
+    Return the estimated number of rows (excluding boundary records), and set the is_n_rows_exact flag according to whether it is accurately calculated. This recursion function attempts to accurately calculate the number of rows by quickly scanning the initial few pages. If it cannot be accurately calculated, it is estimated based on the average value to achieve a balance between performance and accuracy. From the trace, we can see that the SQL of the two index paths has the same range, but the index height is different, the number of recursions is different, and the average number of page records is also different, resulting in different estimated rows.
 
-从上面的数据我们能看到，额外增加的Cost=DBA推荐的索引Cost-DBdoctor推荐的索引Cost=533216-483589=49627，DBA推荐的索引Cost增大主要有以下原因：
+From the above data, we can see that the additional cost = the index recommended by DBA Cost-DBdoctor recommended index Cost=533216-483589=49627, the main reasons for the increase in the cost of DBA recommended index are as follows:
 
-- 预估偏差Rows的Sever CPU Cost=45116*0.1=4511.6
+- Estimated Sever CPU Cost of Bias Rows = 45116 * 0.1 = 4511.6
 
-- 预估偏差Rows涉及的Page IO Cost(单次io_read_block_cost默认为1）
+- Estimated Deviation Rows Page IO Cost (default is 1 per io_read_block_cost)
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnvgiaHYkP7H9bhQcAN1ozjOwqmw666bdgWOr7t4UvG5BHWxLWsASaUDwic0tyMRl8pYIhS5TTDA2bw/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-**综上所述**：精确估算行数和平均值预估得出的行数是存在数据偏差的，从而也会影响到索引的最终选择，这一块由内核的固化代码逻辑来决定，DBA在做索引推荐的时候是无法感知到这一层的，通过规则方式不能覆盖到该场景。而通过DBdoctor的eBPF技术是可以感知到该层面数据，从而可以做出和MySQL选择一致的最优路径，从上面的执行结果可以看到**DBdoctor推荐的索引比DBA推荐的索引执行耗时减少一倍。**
+**In summary**：Accurate estimation of the number of rows and the estimated number of rows from the average value have data biases, which will also affect the final selection of the index. This is determined by the solidified code logic of the inner core. DBA cannot perceive this layer when making index recommendations, and cannot cover this scene through regular methods. However, through DBdoctor's eBPF technology, the data at this level can be perceived, and the optimal path consistent with MySQL selection can be made. As can be seen from the above execution results **The index recommended by DBdoctor takes twice as much time to execute as the index recommended by DBA.**
 
-**总结**
+**Summary**
 
-DBdoctor基于实际Cost的最优路径分析才是最准的，DBA的经验规则在一定场景下确实是可以带来优化，但在一些场景下是很难搞定的，比如上述场景，这里我初略的列了以下几点：
+DBdoctor's optimal path analysis based on actual cost is the most accurate. The experience rules of DBAs can indeed bring optimization in certain scenarios, but it is difficult to handle in some scenarios, such as the above scenario. Here, I have briefly listed the following points:
 
-- 多种算法路径会导致Cost不一样
+- Multiple algorithm paths will result in different Costs
 
-- 在不同版本中路径行为都不一样，导致cost不一样
+- The path behavior is different in different versions, resulting in different costs
 
-- 索引的预估rows不一样，Cost不一样
+- Estimated index rows are different, Cost is different
 
-- 额外的一些变量因子也会导致变化
+- Additional variable factors can also cause changes
 
-**综上所述，DBdoctor的旁路优化器才是终极杀器！不管何种场景，用SQL审核功能复制粘贴SQL，可一分钟快速得出最优索引结论。**
+**In summary, DBdoctor's bypass optimizer is the ultimate killer! Regardless of the scenario, using SQL audit function to copy and paste SQL can quickly reach the optimal index conclusion in one minute.**
 
