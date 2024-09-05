@@ -1,5 +1,5 @@
 <h2 align="center">
-  <img width="280" src="https://50001070.s21i.jzaliusr.com/4/ABUIABAEGAAg1fLrtQYokKnlhQMwqgI4PQ.png" >
+  <img width="280" src="./images/logo.png" >
   <p>DBdoctor，致力于解决数据库的一切性能问题</p>
   <div align="center">
     <a>
@@ -26,6 +26,12 @@ DBdoctor是一款内核级数据库性能诊断软件，致力于解决数据库
 
 ## 技术相关文章
 
+- [DBdoctor推出无Agent轻量级纳管解决方案](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DbdoctorIntroducesAgentlessLightweightManagementSolution.md)
+- [MySQL Using temporary案例详解及优化方法](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/MySQLUsingTemporary.md)
+- [内存耗尽！如何快速定位Java OOM问题根因](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/OutOfMemory.md)
+- [一条SQL使用order by，引发IO问题](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/AnSqlLineUsesOrderBy.md)
+- [一个接口未做超时处理，引发数据库hang了](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/AnInterfaceDidNotTimeOut.md)
+- [还在用JVM跑你的Java代码吗？太慢了，试试Oracle的GraalVM吧](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/StillRunningYourJavaCodeWithTheJvm.md)
 - [MySQL加个索引都可能丢数据，这个坑你知道吗？](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/MysqlCanLoseDataByAddingAnIndex.md)
 - [DBA必备！如何使用DBdoctor进行索引推荐](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/HowDoIUseDbdoctorForIndexRecommendations.md)
 - [Docker Hub无法访问，DBdoctor的应对之策](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DockerhubCannotBeAccessed.md)
@@ -43,6 +49,7 @@ DBdoctor是一款内核级数据库性能诊断软件，致力于解决数据库
     - [性能诊断工具DBdoctor如何快速纳管数据库PolarDB-X](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DbdoctorQuicklyManagesPolardb-x.md)
     - [DBdoctor如何纳管公有云RDS](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/HowDoesDbdoctorManagePublicCloudRds.md)
     - [DBdoctor快速纳管SQL Server](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DbdoctorQuicklyManagesSqlServer.md)
+    - [DBdoctor快速纳管GBase 8a数据库](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DbdoctorQuicklyManageGbase.md)
 
 ## 教程相关文章
 
@@ -51,4 +58,6 @@ DBdoctor是一款内核级数据库性能诊断软件，致力于解决数据库
     - [eBPF实战教程二｜数据库网络流量最精准的量化方法(含源码)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF02.md)
     - [eBPF实战教程三｜数据库磁盘IO最精准的量化方法(含源码)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF03.md)
     - [eBPF实战教程四 | 用蜜蜂(eBPF)来追踪海豚(MySQL)，性能追的上吗？](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/UseEbpfToTrackMysql.md)
-    - [eBPF实战教程五｜如何使用USDT探针定位MySQL异常访问(含源码)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF04.md)
+    - [eBPF实战教程五｜如何使用USDT探针定位MySQL异常访问(含源码)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF05.md)
+    - [eBPF实战教程六｜USDT的预埋与性能测评](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF06.md)
+    
