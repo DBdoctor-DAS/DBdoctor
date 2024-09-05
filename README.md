@@ -1,6 +1,6 @@
 <h2 align="center">
   <img width="280" src="https://50001070.s21i.jzaliusr.com/4/ABUIABAEGAAg1fLrtQYokKnlhQMwqgI4PQ.png" >
-  <p>DBdoctor，致力于解决数据库的一切性能问题</p>
+    <p> DBdoctor, dedicated to solving all performance issues of the database </p>
   <div align="center">
     <a>
         <img src="https://img.shields.io/badge/author-DBdoctor-DAS.svg">
@@ -10,46 +10,45 @@
     </a>
   </div>
 </h2>
-DBdoctor是一款内核级数据库性能诊断软件，致力于解决数据库的一切性能问题。
-就像对数据库做全身CT，帮助您一分钟内找到数据库性能问题，实现数据库性能诊断百倍提效。
-针对数据库性诊断门槛高、耗时长的问题，DBdoctor提供了快速易用的解决方案，
-基于海量数据实时分析技术，深入到数据库内核，提供精准的诊断分析和优化建议。
+DBdoctor is a kernel-level database performance diagnostic software, dedicated to solving all performance problems of the database.
+Just like doing a full-body CT scan of a database, it helps you find database performance issues within one minute and achieve a hundredfold improvement in database performance diagnosis.
+DBdoctor provides a fast and easy-to-use solution for the high threshold and time-consuming problems of database diagnosis.
+Based on real-time analysis technology of massive data, we delve into the database kernel to provide accurate diagnostic analysis and optimization suggestions.
 
-[English Version](./README.md)
-## 索引
+[中文版本](./README.CN.md)
+## Index
 
 
-- [简介](#简介)
+- [Introduction](#Introduction)
 
-- [技术相关](#技术相关)
+- [Technology related](#Technology related)
 
-- [教程相关](#教程相关)
+- [Tutorial related](#Tutorial related)
 
-## 简介
+Introduction
 
-- [DBdoctor简介](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/dbdoctor-introduce.md)
-- [下载安装包](https://jhktob.oss-cn-beijing.aliyuncs.com/DBdoctorV3.2.3_20240820_x86.tar.gz)
-- [在线试用]((https://demo.dbdoctor.cn/))
-- [产品文档](https://demo.dbdoctor.cn/modules/dbDoctor/mdPreview/index.html?readme=help#/)
+- [Introduction to DBDoctor](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/dbdoctor-introduce.md)
+- [Download installation package](https://www.dbdoctor.cn/h-col-133.html)
+- [Online Trial](https://demo.dbdoctor.cn/)
+- [Product documentation](https://demo.dbdoctor.cn/modules/dbDoctor/mdPreview/index.html?readme=help#/)
 
-## 技术相关
-- [Docker Hub无法访问，DBdoctor的应对之策](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DockerhubCannotBeAccessed.md)
-- [数据库索引推荐大PK，DBdoctor和资深DBA的终极较量](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DatabaseIndexRecommendedLargePk.md)
-- [端午特别篇：你真的了解数据库索引吗？](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DoYouReallyKnowAnythingAboutDatabaseIndexing.md)
-- [用蜜蜂(eBPF)来追踪海豚(MySQL)，性能追的上吗？](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/UseEbpfToTrackMysql.md)
-- [被锁住的大象(Postgres)，如何跟MySQL赛跑](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/TheChainedElephant.md)
+Technology related
+- [Docker Hub cannot be accessed, DBdoctor's response](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DockerhubCannotBeAccessed.md)
+- [Database index recommendation big PK, the ultimate competition between DBdoctor and senior DBAs](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DatabaseIndexRecommendedLargePk.md)
+- [Dragon Boat Festival Special Edition: Do You Really Understand Database Indexing?](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DoYouReallyKnowAnythingAboutDatabaseIndexing.md)
+- [Can the performance of using bee (eBPF) to track dolphins (MySQL) catch up?](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/UseEbpfToTrackMysql.md)
+- [The locked elephant (Postgres), how to race against MySQL](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/TheChainedElephant.md)
+- [The strongest SQL audit tool in history, seeking challenge!](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/TheMostPowerfulSqlAuditToolEver.md)
 
-- [史上最强的SQL审核工具，求挑战！](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/TheMostPowerfulSqlAuditToolEver.md)
+- [Using DBdoctor for database inspection: smoothly coping with the Spring Festival traffic peak](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/CopeWithTheSpringFestivalTrafficPeak.md)
 
-- [用DBdoctor做数据库巡检：顺滑应对春节流量洪峰](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/CopeWithTheSpringFestivalTrafficPeak.md)
+- Database management
+  - [DBDoctor Rapid Management OceanBase](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DbdoctorQuicklyManagesOceanbase.md)
+  - [Performance diagnostic tool DBdoctor How to quickly manage the database PolarDB-X](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DbdoctorQuicklyManagesPolardb-x.md)
+  - [How DBDoctor Manages Public Cloud RDS](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/HowDoesDbdoctorManagePublicCloudRds.md)
 
-- 数据库纳管
-    - [DBdoctor快速纳管OceanBase](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DbdoctorQuicklyManagesOceanbase.md)
-    - [性能诊断工具DBdoctor如何快速纳管数据库PolarDB-X](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DbdoctorQuicklyManagesPolardb-x.md)
-    - [DBdoctor如何纳管公有云RDS](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/HowDoesDbdoctorManagePublicCloudRds.md)
-
-## 教程相关
+Tutorial related
 
 - EBPF
-    - [eBPF专题一 | 手把手教你用eBPF诊断MySQL(含源码)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF01.md)
-    - [eBPF实战教程二｜数据库网络流量最精准的量化方法(含源码)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF02.md)
+  - [eBPF Special Topic 1 | Teach You How to Diagnose MySQL with eBPF (Including Source Code)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF01.md)
+  - [eBPF Practical Tutorial 2 | The most accurate quantification method for database network traffic (Including Source Code)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF02.md)
