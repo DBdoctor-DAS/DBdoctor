@@ -16,14 +16,6 @@ DBdoctor是一款内核级数据库性能诊断软件，致力于解决数据库
 基于海量数据实时分析技术，深入到数据库内核，提供精准的诊断分析和优化建议。
 
 [English Version](./README.md)
-## 索引
-
-
-- [简介](#简介)
-
-- [技术相关](#技术相关)
-
-- [教程相关](#教程相关)
 
 ## 简介
 
@@ -32,7 +24,7 @@ DBdoctor是一款内核级数据库性能诊断软件，致力于解决数据库
 - [在线试用](https://demo.dbdoctor.cn/)
 - [产品文档](https://demo.dbdoctor.cn/modules/dbDoctor/mdPreview/index.html?readme=help#/)
 
-## 技术相关
+## 技术相关文章
 - [Docker Hub无法访问，DBdoctor的应对之策](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DockerhubCannotBeAccessed.md)
 - [数据库索引推荐大PK，DBdoctor和资深DBA的终极较量](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DatabaseIndexRecommendedLargePk.md)
 - [端午特别篇：你真的了解数据库索引吗？](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DoYouReallyKnowAnythingAboutDatabaseIndexing.md)
@@ -48,7 +40,7 @@ DBdoctor是一款内核级数据库性能诊断软件，致力于解决数据库
     - [性能诊断工具DBdoctor如何快速纳管数据库PolarDB-X](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DbdoctorQuicklyManagesPolardb-x.md)
     - [DBdoctor如何纳管公有云RDS](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/HowDoesDbdoctorManagePublicCloudRds.md)
 
-## 教程相关
+## 教程相关文章
 
 - EBPF
     - [eBPF专题一 | 手把手教你用eBPF诊断MySQL(含源码)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF01.md)

@@ -16,23 +16,15 @@ DBdoctor provides a fast and easy-to-use solution for the high threshold and tim
 Based on real-time analysis technology of massive data, we delve into the database kernel to provide accurate diagnostic analysis and optimization suggestions.
 
 [中文版本](./README.CN.md)
-## Index
 
-
-- [Introduction](#Introduction)
-
-- [Technology related](#Technology related)
-
-- [Tutorial related](#Tutorial related)
-
-Introduction
+## Introduction
 
 - [Introduction to DBDoctor](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/dbdoctor-introduce.md)
 - [Download installation package](https://www.dbdoctor.cn/h-col-133.html)
 - [Online Trial](https://demo.dbdoctor.cn/)
 - [Product documentation](https://demo.dbdoctor.cn/modules/dbDoctor/mdPreview/index.html?readme=help#/)
 
-Technology related
+## Technology-related articles
 - [Docker Hub cannot be accessed, DBdoctor's response](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DockerhubCannotBeAccessed.md)
 - [Database index recommendation big PK, the ultimate competition between DBdoctor and senior DBAs](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DatabaseIndexRecommendedLargePk.md)
 - [Dragon Boat Festival Special Edition: Do You Really Understand Database Indexing?](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DoYouReallyKnowAnythingAboutDatabaseIndexing.md)
@@ -47,7 +39,7 @@ Technology related
   - [Performance diagnostic tool DBdoctor How to quickly manage the database PolarDB-X](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DbdoctorQuicklyManagesPolardb-x.md)
   - [How DBDoctor Manages Public Cloud RDS](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/HowDoesDbdoctorManagePublicCloudRds.md)
 
-Tutorial related
+## Tutorial related articles
 
 - EBPF
   - [eBPF Special Topic 1 | Teach You How to Diagnose MySQL with eBPF (Including Source Code)](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF01.md)
