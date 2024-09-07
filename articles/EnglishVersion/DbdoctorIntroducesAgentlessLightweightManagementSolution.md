@@ -1,63 +1,58 @@
-# DBdoctor推出无Agent轻量级纳管解决方案
+# DBdoctor launches Agent-free lightweight management solution
 
-## 背景
-在数字化时代，数据库作为信息系统的核心，其安全性、稳定性与高效性至关重要，对于业务敏感且数据保密性要求高的企业而言，在数据库权限管理和安全流程上有着更为严苛的要求。当这些用户在面临数据库性能问题时，往往无法使用那些通过部署Agent来采集数据及执行命令的辅助工具，来快速发现并解决问题，因此这让他们倍感困扰！
+## Background
+In the digital age, databases are at the core of information systems, and their security, stability, and efficiency are crucial. For businesses that are sensitive to data and require high confidentiality, there are stricter requirements for database permission management and security processes. When these users face database performance issues, they are often unable to use tools that deploy agents to collect data and execute commands, making it difficult to quickly identify and resolve problems, which is a source of frustration!
 
-针对上述难题，DBdoctor现已推出无Agent轻量级纳管解决方案，无需安装Agent,即可快速纳管实例！
+To address this issue, DBdoctor has now launched a lightweight agentless database management solution, allowing users to quickly manage instances without installing an agent!
 
-## DBdoctor推出无Agent轻量级纳管解决方案
+## DBdoctor launches Agent-free lightweight management solution
 
-DBdoctor无Agent轻量级纳管方式，可有效简化部署过程，快速对数据库进行性能诊断。
+The agentless lightweight database management method from DBdoctor simplifies the deployment process and enables quick database performance diagnostics.
 
-### 方案优势：
+### Solution Advantages:
 
-- 轻量部署，快速纳管实例
+- Lightweight deployment, quick instance management
+- No need to install agents, eliminating dependencies on kernel versions and CPU architectures
+- After management, you can access features such as **SQL audit, index recommendation, instance inspection, performance insights, and basic monitoring**.
 
-- 无需安装Agent，不再依赖kernel版本、cpu架构
+### Instance Management Method:
 
-- 纳管后可使用：**SQL审核、索引推荐，实例巡检、性能洞察、基础监控**功能
+Once the basic database information has been validated, select the [Agentless] option for data collection and click submit to complete agentless instance management. This method avoids installing an agent on the target machine.
 
-### 实例纳管方式：
+![Image](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZlsFicCwVJTibCsM3ic5SoNict1A6SHyaPJSZ9zvOKhbsfHTnE1wmtvowqSQ9FID9jzFeVFsCSAD2jTcA/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-数据库基本信息填写校验完成后，数据采集方式选择【无Agent】，点击提交即可完成无Agent实例纳管。选择该方式后，将不会再到目标机器上进行Agent安装。
+**Note**: Metrics such as CPU, diskIO, MEM, and diskSize rely on agent collection, so features like performance insights, instance inspection, and basic monitoring will be limited.
 
-![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZlsFicCwVJTibCsM3ic5SoNict1A6SHyaPJSZ9zvOKhbsfHTnE1wmtvowqSQ9FID9jzFeVFsCSAD2jTcA/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+## What Features Can Be Experienced With Agentless Management?
 
-**注**：因CPU、diskIO、MEM、diskSize等指标依赖Agent采集，因此性能洞察、实例巡检、基础监控等部分功能将受限。
+### 1. Full SQL Audit Functionality
+- Unlock manual audit, slow SQL audit, and OpenAPI audit
+- Unlock index recommendation feature
+- As shown in the image below, users can perform rule audits and performance audits on batch SQL submissions.
 
-## 无Agent纳管可体验哪些功能？
+![Image](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZk8VvtXffcegrISvVpVCibEpIN0MFKZdG8xBOWgzSvOg1jLXmatEq05Y99rpnWWrpKuEkd38928m5g/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-### 1. 全量SQL审核功能
-- 解锁人工审核、慢SQL审核、OpenAPI审核
+![Image](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZk8VvtXffcegrISvVpVCibEpv1lGiajvb0hbTUJ4BrF9ZMaXfhwIO4mInjUnOqTJMvSaazRZNQz2FjQ/640?wx_fmt=png&from=appmsg&tp=webp&wx_lazy=1&wx_co=1)
 
-- 解锁索引推荐功能
+### 2. Instance Inspection Functionality
 
-- 如下图所示，我们可以看到针对用户提交的批量SQL审核，可进行规则审核及性能审核
+- The inspection function can be used normally. By clicking the [Start Inspection] button, you can trigger the inspection function, wait for the inspection report, and view the inspection results.
+- Experience features such as inspection overview, monitoring status summary, configuration issues, resource issues, and performance trends.
 
-![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZk8VvtXffcegrISvVpVCibEpIN0MFKZdG8xBOWgzSvOg1jLXmatEq05Y99rpnWWrpKuEkd38928m5g/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+![Image](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZk8VvtXffcegrISvVpVCibEpgibhTTLnicCaSUrtQnibx0jI7T5Q8Dop9javsBABL9CqwRPSicZTc5xE8Q/640?wx_fmt=png&from=appmsg&tp=webp&wx_lazy=1&wx_co=1)
 
-![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZk8VvtXffcegrISvVpVCibEpv1lGiajvb0hbTUJ4BrF9ZMaXfhwIO4mInjUnOqTJMvSaazRZNQz2FjQ/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+### 3. Performance Insights Functionality
 
-### 2.实例巡检功能
+Using AAS data and slow SQL, we can also analyze business problems and identify root cause SQL. As shown in the image below, when a business experiences a lag at a specific time, DBdoctor can identify the root cause SQL through the AAS spike.
 
-- 可正常使用巡检功能，我们通过点击【立即巡检】按钮即可触发巡检功能，等待巡检报告，可查询巡检报告结果。
+![Image](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZk8VvtXffcegrISvVpVCibEpUbbUiaicibbUp7SrDXeqkN49rZyAqa2wKSsAm2tzZQHn5crSiaavaWOzNA/640?wx_fmt=png&from=appmsg&tp=webp&wx_lazy=1&wx_co=1)
 
-- 可体验巡检总览、监控状况概要、配置问题、资源问题、性能趋势等功能。
+### 4. Basic Monitoring Functionality
 
-![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZk8VvtXffcegrISvVpVCibEpgibhTTLnicCaSUrtQnibx0jI7T5Q8Dop9javsBABL9CqwRPSicZTc5xE8Q/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+Agentless managed instances can still use basic monitoring. Since metrics like CPU, diskIO, MEM, and diskSize are collected by agents, these indicators cannot be displayed, but other functions remain unaffected.
 
-### 3. 性能洞察功能
+![Image](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZk8VvtXffcegrISvVpVCibEp7htp78SNNiaxh2U4QFRdMbAgOmXDQYf1Jz00ialqKbKUFe7kw8uSbrQg/640?wx_fmt=png&from=appmsg&tp=webp&wx_lazy=1&wx_co=1)
 
-通过AAS数据及慢SQL，我们同样可以分析业务问题找到根因SQL，如图所示，业务在某一时刻发现卡顿，通过DBdoctor，我们可以看到 AAS凸起部分获取根因SQL。
+## Conclusion
 
-![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZk8VvtXffcegrISvVpVCibEpUbbUiaicibbUp7SrDXeqkN49rZyAqa2wKSsAm2tzZQHn5crSiaavaWOzNA/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
-
-### 4. 基础监控功能
-
-无Agent纳管实例基础监控可正常使用，因 CPU、diskIO、MEM、diskSize、存储空间相关指标为Agent采集，相关指标无法展示，其他功能不受影响。
-
-![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZk8VvtXffcegrISvVpVCibEp7htp78SNNiaxh2U4QFRdMbAgOmXDQYf1Jz00ialqKbKUFe7kw8uSbrQg/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
-
-## 总结
-
-DBdoctor推出的无Agent数据采集方式在简化部署、增强兼容性、提升安全性及快速集成扩展等方面具有显著优势，能够为金融等对数据安全有特殊要求的用户提供更高效、安全、便捷的数据库性能诊断服务。通过无Agent纳管实例，可方便小伙伴快速体验SQL审核、性能洞察等功能，但同时因采集限制，锁透视、审计日志、根因分析等部分功能将受限，因此想体验DBdoctor全量功能，还是建议小伙伴们通过Agent方式进行实例纳管。
+DBdoctor's agentless data collection method offers significant advantages in simplifying deployment, enhancing compatibility, improving security, and enabling quick integration and expansion. This solution provides more efficient, secure, and convenient database performance diagnostic services for industries like finance that have specific data security requirements. With agentless instance management, users can quickly experience features such as SQL audits and performance insights. However, due to collection limitations, some features like Lock Insights, Audit Logs, and Root Cause Analysis will be restricted. Therefore, to experience the full range of DBdoctor’s features, it is still recommended to manage instances via agent-based methods.
