@@ -1,7 +1,7 @@
 # Database index recommendation big PK, the ultimate competition between DBdoctor and senior DBAs
 
 ## Preface
-In the previous article ["Dragon Boat Festival Special Edition: Do You Really Understand Database Indexes?"](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/DoYouReallyKnowAnythingAboutDatabaseIndexing.md) In this article, Ji Kuan raised a question about a business SQL recommended index optimization problem. He found that the index combination (status, purchase_date, device_name, device_id) recommended by DBdoctor seemed to be very different from the index scheme recommended by him as a DBA with many years of experience. Who is right or wrong between DBdoctor and senior DBA? In this article, we will decipher the PK results of DBdoctor and senior DBA in detail, and I will use actual verification and analysis to beat him hard!
+In the previous article ["Dragon Boat Festival Special Edition: Do You Really Understand Database Indexes?"](../../articles/DoYouReallyKnowAnythingAboutDatabaseIndexing.md) In this article, Ji Kuan raised a question about a business SQL recommended index optimization problem. He found that the index combination (status, purchase_date, device_name, device_id) recommended by DBdoctor seemed to be very different from the index scheme recommended by him as a DBA with many years of experience. Who is right or wrong between DBdoctor and senior DBA? In this article, we will decipher the PK results of DBdoctor and senior DBA in detail, and I will use actual verification and analysis to beat him hard!
 
 ```SQL
 SELECT *

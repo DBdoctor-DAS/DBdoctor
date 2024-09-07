@@ -2,7 +2,7 @@
 
 ## 前言
 
-各位小伙伴们，非常感谢您对我们eBPF专题系列文章的持续关注和热情支持。在先前的文章[《eBPF实战教程五｜如何使用USDT探针定位MySQL异常访问(含源码)》](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/EBPF05.md)中，我们探讨了MySQL中DTrace的应用，该方法需要修改数据库内核代码（嵌入静态钩子），然后利用eBPF进行探测。而通过uprobe(User-space Probes)方式无需修改数据库内核源码即可探测。那么uprobe(User-space Probes)方式和USDT(User Statically Defined Tracing）相比，哪种方式更好呢？
+各位小伙伴们，非常感谢您对我们eBPF专题系列文章的持续关注和热情支持。在先前的文章[《eBPF实战教程五｜如何使用USDT探针定位MySQL异常访问(含源码)》](../../articles/EBPF05.md)中，我们探讨了MySQL中DTrace的应用，该方法需要修改数据库内核代码（嵌入静态钩子），然后利用eBPF进行探测。而通过uprobe(User-space Probes)方式无需修改数据库内核源码即可探测。那么uprobe(User-space Probes)方式和USDT(User Statically Defined Tracing）相比，哪种方式更好呢？
 
 本文我们将与您深入探讨USDT的预埋，并从性能和扩展上进行对比分析。
 

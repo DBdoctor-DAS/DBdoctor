@@ -6,19 +6,19 @@ Since its debut at the DTCC conference, DBdoctor has received extensive attentio
 DBdoctor is a kernel-level database performance diagnostic software dedicated to solving all performance problems of databases. Yes, we only focus on the extremely fine and specialized field of database performance. There is no shortage of platform-level products for databases in China, but we have not really solved the most painful point of performance. There are even fewer companies that focus solely on database performance. In the end, we chose to break through this most difficult mile for the industry.
 <div style="text-align: center;">
 
-![DBdoctor: IT168 Best Innovative Product Award](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/innovative-product.png)
+![DBdoctor: IT168 Best Innovative Product Award](../../images/dbdoctor-introduce/innovative-product.png)
 
 </div>
 <center style="font-size: 18px;color: #999;">DBdoctor: IT168 Best Innovative Product Award</center>
 
 The performance of performance issues is very digital and can be clearly reflected through basic monitoring. However, it is difficult to quantify the solution and relies heavily on fault handling experience. Therefore, industry products often rely on experience accumulation to solve problems, but still have not completely solved performance problems. DBdoctor has abandoned traditional empirical methods from the beginning and developed a unique mathematical quantification method. We internally compare DBdoctor to a CT machine for a database, which obtains real performance problems through CT scanning, rather than relying heavily on experience. DBdoctor can quickly diagnose performance problems, just like a CT machine can accurately locate the cause of the disease. Moreover, it can detect performance hazards in advance, just like the principle of preventing problems through CT during annual physical examinations. The difference is that DBdoctor will continuously guard your database in real time.
 
-![Database CT machine](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/database-ct.png)
+![Database CT machine](../../images/dbdoctor-introduce/database-ct.png)
 <center style="font-size: 18px;color: #999;">Database CT machine</center>
 
 Based on this, we hope to help more DBAs and R & D engineers. Help DBAs solve and avoid problems faster, completely release from oncall, and do more meaningful things such as architecture improvement; empower R & D personnel who are not familiar with databases to have the ability to troubleshoot database performance problems, and help enterprises without professional DBAs no longer be troubled by database performance problems.
 
-![logo](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/dbdoctor-logo.png)
+![logo](../../images/dbdoctor-introduce/dbdoctor-logo.png)
 
 The above picture is our logo, a cute woodpecker with the nickname "Bird Doctor". It has a sharp long beak and its body is composed of the abbreviation "DB" for database, implying that it will guard your database in real time like a woodpecker doctor and eliminate all bugs.
 
@@ -31,7 +31,7 @@ In 2022, Ali friend Teacher Zheng joined the team as the R & D leader to compreh
 
 At the beginning of 2023, based on the demands of the group and its partners, we conducted further research on the industry and database users. We found that performance issues have always ranked first among the top ten pain points of MySQL, and there are few products in the industry dedicated to solving database performance problems. Therefore, we monetized DBdoctor and finally released the V3.0 version at the DTCC conference. After five minor versions, DBdoctorV3.1 was released today.
 
-![DBdoctor origin](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/dbdoctor-origin.png)
+![DBdoctor origin](../../images/dbdoctor-introduce/dbdoctor-origin.png)
 <center style="font-size: 18px;color: #999;">DBdoctor origin</center>
 
 ## 03.DBdoctor design concept
@@ -47,7 +47,7 @@ With the development of databases today, it is easy to build a database monitori
 
 So in the past, when working at Alibaba Cloud Ali Cloud Aliyun, we often had to take turns on-call, busy fighting fires all day, and being woken up by phone alarms in the middle of the night was normal. Even after performance problems occurred, there would be phenomena of business parties and DBAs shirking responsibility and reviewing problems, which was unbearable.
 
-![Challenges of performance issues](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/challenge-of-performance-issues.png)
+![Challenges of performance issues](../../images/dbdoctor-introduce/challenge-of-performance-issues.png)
 <center style="font-size: 18px;color: #999;">Challenges of performance issues</center>
 
 ### The root cause of the above phenomenon
@@ -56,82 +56,82 @@ So in the past, when working at Alibaba Cloud Ali Cloud Aliyun, we often had to 
 2. **Lack of quantifiable data models**.  In the past, relying on experience accumulation, when encountering problems, we first look at whether we are familiar with them. Familiar ones can be quickly located, while newly introduced ones require a series of reproducibility verifications. Those that can be solved enter the experience database, and those that cannot become difficult problems to avoid. However, the speed of experience accumulation often cannot keep up with business development, so the experience of mature businesses is difficult to reuse in new businesses, and the experience that works on MySQL may not necessarily work on PostgreSQL. Experience ultimately comes down to rules. The industry is generally trying to enrich the rule database, but in the era of multi-engine coexistence, it is really difficult to build a universal rule database.
 3. **Lack of measures to detect problems in advance**. The discovery of traditional performance problems is based on alarm-driven, lacking active discovery measures. By setting indicator thresholds, an alarm is issued when the monitoring indicator exceeds the threshold. Once the database instance reaches a certain scale, it is easy to appear two extreme cycles of relaxation and tightening. When there is no problem, alarm governance is carried out, and the threshold is increased to reduce the amount of alarm. After a problem occurs, the threshold is immediately lowered to improve sensitivity, treating the symptoms rather than the root cause.
 
-![The root cause of the challenge](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/root-cause-of-the-challenge.png)
+![The root cause of the challenge](../../images/dbdoctor-introduce/root-cause-of-the-challenge.png)
 <center style="font-size: 18px;color: #999;">The root cause of the challenge</center>
 
 ### What is the difference between DBDoctor?
 DBdoctor has abandoned log collection and empirical rule methods since version 1.0, and firmly believes in solving mathematical problems through mathematical methods. eBPF is our main tool. Observing the execution path of SQL in the database kernel through eBPF and collecting the important consumption of each link is the technical breakthrough of DBdoctor1.0 version. Aggregating, analyzing, processing Big data based on these important data and associating it with basic resources such as CPU, IO, and MEM is the main challenge that DBdoctor2.0 has overcome. Identifying root causes and hidden dangers through mathematical models of graphic correlation analysis and abnormal image recognition is the main innovation of 3.0. Below, I will introduce these three advantages in detail one by one, which may be more technical, but absolutely novel.
 
-![DBdoctor: overall architecture](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/dbdoctor-architecture.png)
+![DBdoctor: overall architecture](../../images/dbdoctor-introduce/dbdoctor-architecture.png)
 
 <center style="font-size: 18px;color: #999;">DBdoctor: overall architecture</center>
 
 ### Advantage 1: Use more accurate indicator data for analysis
 DBdoctor collected detailed resource consumption of an SQL statement on the execution stack based on eBPF technology, including CPU, IO, network, lock and other consumption data. Based on these consumption data, a specific distribution map of consumption was drawn according to the time dimension, and different colors were assigned. A series of graphics were placed in the same coordinate system, and detailed quantitative analysis was finally produced through compression and segmentation.
-![Use more accurate indicator data for analysis](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/Index-data.png)
+![Use more accurate indicator data for analysis](../../images/dbdoctor-introduce/Index-data.png)
 <center style="font-size: 18px;color: #999;">Use more accurate indicator data for analysis</center>
 
 Therefore, there is no need to link and scrutinize numerous and miscellaneous indicator items. Just focus on key resources and drag and drop to view specific diagnostic details. Use colors to distinguish different execution stages of SQL in the kernel, map resource consumption to color area, and calculate and filter by area and correlation algorithms (which will be explained in detail later) to obtain the main resource bottleneck. Support switching between different resource dimensions such as IO, lock, and CPU to view corresponding resource consumption.
 
-![Three steps to accurately discover problems SQL](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/pinpoint-problem-SQL.png)
+![Three steps to accurately discover problems SQL](../../images/dbdoctor-introduce/pinpoint-problem-SQL.png)
 <center style="font-size: 18px;color: #999;">Three steps to accurately discover problems SQL</center>
 
 At the same time, fine grain data containing detailed lock data is collected, and this is concatenated in the Big data processing stage to form the following lock swimlane diagram. The lock problem is divided into four events: lock waiting, deadlock, long transaction, and uncommitted. This way, we can generate event portraits according to the characteristics of each event, such as the need for lock waiting and the need for a loop for deadlock. Lock events - > specific locks - > SQL where the locks are located - > transactions where SQL is located respectively - > SQL contained in the transaction - > locks contained in SQL, what type each lock is, the number of rows affected, whether it is held or waited, and its page and heap information. Moreover, we are currently breaking through the specific data of the lock, please stay tuned for details.
 
-![Lock wait visualization analysis](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/LockWaitingForVisualAnalysis.png)
+![Lock wait visualization analysis](../../images/dbdoctor-introduce/LockWaitingForVisualAnalysis.png)
 <center style="font-size: 18px;color: #999;">Lock wait visualization analysis</center>
 
-![Deadlock visualization analysis](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/DeadlockVisualAnalysis.png)
+![Deadlock visualization analysis](../../images/dbdoctor-introduce/DeadlockVisualAnalysis.png)
 <center style="font-size: 18px;color: #999;">Deadlock visualization analysis</center>
 
 ### Advantage 2: Use quantifiable mathematical models for analysis
 DBdoctor first performs SQL fuzzy processing on the collected fine grain indicator data, aggregates the data according to the fuzzy SQL, and aligns the aggregated SQL again to the same Sequence Diagram. The resource consumption of each fuzzy SQL and the resource consumption of the entire instance are analyzed by correlation algorithm. Here, it can be simply understood as comparing the similarity of two graphs and giving the correlation score of the fuzzy SQL. The correlation score is reordered again to obtain the final ranking of the associated SQL. Therefore, the SQL in the DBdoctor SQL correlation analysis list is accurately calculated through mathematical models.
 
-![Analyze using quantifiable mathematical models](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/UseQuantifiableMathematicalModelsForAnalysis.png)
+![Analyze using quantifiable mathematical models](../../images/dbdoctor-introduce/UseQuantifiableMathematicalModelsForAnalysis.png)
 
 <center style="font-size: 18px;color: #999;">Analyze using quantifiable mathematical models</center>
 
 As shown in the figure below, you can view the detailed resource distribution of any SQL statement in DBdoctor, and view the consumption of specific resources such as CPU, IO, locks, and network. Multiple statements can be directly compared on the same coordinate axis, and can also be correlated with the resource consumption in the instance dimension.
 
-![View specified SQL CPU consumption and correlation](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/ViewTheSpecifiedSqlCpuConsumptionAndCorrelation.png)
+![View specified SQL CPU consumption and correlation](../../images/dbdoctor-introduce/ViewTheSpecifiedSqlCpuConsumptionAndCorrelation.png)
 <center style="font-size: 18px;color: #999;">View specified SQL CPU consumption and correlation</center>
 
 As for the detailed state during the SQL execution process, it is a reflection of the finer grain of resource consumption. DBdoctor will provide a detailed explanation and provide some scenario cases and optimization suggestions.
 
-![Give optimization suggestions](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/GiveOptimizationSuggestions.png)
+![Give optimization suggestions](../../images/dbdoctor-introduce/GiveOptimizationSuggestions.png)
 <center style="font-size: 18px;color: #999;">Give optimization suggestions</center>
 
 ### Advantage 3: Proactively discover potential problems to avoid failures
 
 Based on the above two points, we propose a problem discovery algorithm based on graphic recognition, which can be understood as searching for graphic mutations and classifying them according to different mutation amplitudes. Currently, it is mainly divided into two levels: anomaly and hidden danger, as shown in the yellow and red squares in the figure below. At the same time, we not only actively identify the event, but also locate the root cause of the event, especially in scenarios where multiple events occur in the same area. Here, we mainly implement a set of root cause correction algorithms, which will be weighted and corrected based on whether the SQL is newly added, whether the performance is deteriorating, whether it is related to other SQL, and whether it is already the source, etc., and finally obtain the root cause SQL.
 
-![Proactively discover potential problems](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/ProactivelyIdentifyPotentialProblems.png)
+![Proactively discover potential problems](../../images/dbdoctor-introduce/ProactivelyIdentifyPotentialProblems.png)
 <center style="font-size: 18px;color: #999;">Proactively discover potential problems</center>
 
 As shown in the figure below, resource anomalies (CPU, IO, etc.), traffic anomalies (QPS), various lock anomalies, etc. can be distinguished in the anomaly and hidden danger intervals, and the root cause SQL that caused this anomaly or hidden danger is given. In addition, DBdoctor will also integrate various anomalies in near real-time for linkage analysis and weighted correction, obtain the root cause of the entire instance dimension, and provide problem phenomena and detailed analysis for the root cause. Further optimization suggestions will be given later to provide a complete root cause diagnosis report.
 
-![Automatically find abnormal intervals](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/FindTheExceptionIntervalAutomatically.png)
+![Automatically find abnormal intervals](../../images/dbdoctor-introduce/FindTheExceptionIntervalAutomatically.png)
 <center style="font-size: 18px;color: #999;">Automatically find abnormal intervals</center>
 
-![Automatically discover lock issues and find the root cause](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/AutomaticallyFindsLockProblemsAndLocatesTheRootCause.png)
+![Automatically discover lock issues and find the root cause](../../images/dbdoctor-introduce/AutomaticallyFindsLockProblemsAndLocatesTheRootCause.png)
 <center style="font-size: 18px;color: #999;">Automatically discover lock issues and find the root cause</center>
 
-![自动分Automatically analyze and derive root cause SQL析推导出根因SQL](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/AutomaticallyAnalyzeAndDeriveRootCauseSql.png)
+![自动分Automatically analyze and derive root cause SQL析推导出根因SQL](../../images/dbdoctor-introduce/AutomaticallyAnalyzeAndDeriveRootCauseSql.png)
 <center style="font-size: 18px;color: #999;">Automatically analyze and derive root cause SQL</center>
 
 The root cause diagnosis page in the following figure directly provides the source SQL of the problem from the perspective of the results. Each SQL will describe the problem phenomenon in detail, count the frequency of the problem occurrence, and list the abnormal events caused by this SQL.
 
-![Root cause diagnosis report](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/RootCauseDiagnosisReport.png)
+![Root cause diagnosis report](../../images/dbdoctor-introduce/RootCauseDiagnosisReport.png)
 <center style="font-size: 18px;color: #999;">Root cause diagnosis report</center>
 
 In the era of Cloud Native, DBdoctor also supports multi-tenant management of instances, providing a self-editable performance overview from the tenant perspective. The performance of all instances can be viewed in two dimensions: the number of root cause issues and the number of abnormal events. You can directly click on the problem instance to drill down to the root cause diagnosis page to view the problem details.
 
-![Performance Disc](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/PerformanceMarket.png)
+![Performance Disc](../../images/dbdoctor-introduce/PerformanceMarket.png)
 <center style="font-size: 18px;color: #999;">Performance Disc</center>
 
 ## 04.Application scenarios
 
-![Application scenarios](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/dbdoctor-introduce/ApplicationScenario.png)
+![Application scenarios](../../images/dbdoctor-introduce/ApplicationScenario.png)
 
 Finally, let's talk about application scenarios.
 

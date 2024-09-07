@@ -1,5 +1,5 @@
 # MySQL Using temporary案例详解及优化方法
-在之前的文章[《一条SQL使用order by，引发IO问题》](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/articles/AnSqlLineUsesOrderBy.md)中，针对Using Filesort我们探讨了MySQL的排序策略与优化方向，今天，我们将介绍另一种会导致慢SQL的常见情况，即“Using temporary”，本文我们将带领大家详细探讨此类问题的原因及如何优化。
+在之前的文章[《一条SQL使用order by，引发IO问题》](../articles/AnSqlLineUsesOrderBy.md)中，针对Using Filesort我们探讨了MySQL的排序策略与优化方向，今天，我们将介绍另一种会导致慢SQL的常见情况，即“Using temporary”，本文我们将带领大家详细探讨此类问题的原因及如何优化。
 
 ## 一. 场景案例
 

@@ -1,83 +1,82 @@
-# 性能诊断工具DBdoctor如何快速纳管数据库PolarDB-X
+# Performance diagnostic tool DBdoctor How to quickly manage database PolarDB-X
 
-近日，DBdoctor（V3.1.0）正式通过了阿里云PolarDB分布式版（V2.3）产品集成认证测试，并获得阿里云颁发的产品生态集成认证。
+Recently, DBdoctor (V3.1.0) officially passed the product integration certification test of Alibaba Cloud Ali Cloud Aliyun PolarDB distributed version (V2.3), and obtained the product ecological integration certification issued by Alibaba Cloud Ali Cloud Aliyun.
 
-![DBdoctor快速纳管PolarDB-X](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/PolarDB.png)
+![DBdoctor Quick Narrow Tube PolarDB-X](../../images/DbdoctorQuicklyManagesPolardb-x/PolarDB.png)
 
-本文将介绍PolarDB的特性，以及如何快速纳管数据库PolarDB-X。
+This article will introduce the features of PolarDB and how to quickly manage the database PolarDB-X.
 
-## 01. PolarDB-X (集中式形态) 产品架构
-PolarDB-X 是阿里自主设计的高性能云原生分布式数据库产品，采用 Shared-nothing 与存储分离计算架构，支持集中式和分布式一体化形态，具备金融级数据高可用、分布式水平扩展、混合负载、低成本存储和极致弹性等能力，为用户提供高吞吐、大存储、低延时、易扩展和超高可用的云时代数据库服务。
+## 01. PolarDB-X (Centralized Form) Product Architecture
+PolarDB-X is a high-performance Cloud Native distributed database product independently designed by Alibaba. It adopts a Shared-nothing and storage separation computing architecture, supports centralized and distributed integrated forms, and has the capabilities of high availability of financial-grade data, distributed horizontal expansion, mixed load, low-cost storage, and extreme elasticity. It provides users with high-throughput, large storage, low latency, easy scalability, and ultra-high-availability cloud era database services.
 
-2023年10月份，PolarDB-X 开源正式发布V2.3.0版本，重点推出集中式形态标准版，将DN节点提供单独服务（存计未分离）。在性能场景上，采用生产级部署和参数(开启双1 + Paxos多副本强同步)，相比于开源MySQL 8.0.34，PolarDB-X在读写混合场景上有30~40%的性能提升，可以作为开源MySQL的最佳替代选择。
+In October 2023, PolarDB-X open source officially released version V2.3.0, focusing on the centralized form standard version, which provides separate services for DN nodes (the deposit is not separated). In the performance scenario, using production-level deployment and parameters (enabling double 1 + Paxos multi-copy strong synchronization), compared with the open source MySQL 8.0.34, PolarDB-X has a 30-40% performance improvement in read-write mixed scenarios, which can be used as the best alternative to open source MySQL.
 
-##### PolarDB-X架构图
+##### PolarDB-X architecture diagram
 
-![架构图](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/ArchitectureDiagram.png)
+![Architecture Diagram](../../images/DbdoctorQuicklyManagesPolardb-x/ArchitectureDiagram.png)
 
-##### PolarDB-X 采用 Shared-nothing 与存储计算分离架构进行设计，系统由4个核心组件组成：
+##### PolarDB-X is designed with a separate architecture of Shared-nothing and storage computing. The system is composed of four core components:
 
-- 计算节点（CN, Compute Node）
+- Compute Nodes（CN, Compute Node）
 
-计算节点是系统的入口，采用无状态设计，包括 SQL 解析器、优化器、执行器等模块。负责数据分布式路由、计算及动态调度，负责分布式事务 2PC 协调、全局二级索引维护等，同时提供 SQL 限流、三权分立等企业级特性。
+The compute node is the entry point of the system and adopts a stateless design, including SQL parser, optimizer, executor and other modules. It is responsible for data distributed routing, calculation and dynamic scheduling, Byte Transaction 2PC coordination, global secondary index maintenance, etc. At the same time, it provides enterprise-level features such as limited viewership of SQL and separation of powers.
 
-- 存储节点（DN, Data Node）
+- Storage Nodes（DN, Data Node）
 
-存储节点负责数据的持久化，基于多数派 Paxos 协议提供数据高可靠、强一致保障，同时通过 MVCC 维护分布式事务可见性。
+The storage node is responsible for the persistence of data, providing high reliability and strong consistency based on the majority Paxos protocol, and maintaining Byte Transaction visibility through MVCC.
 
-- 元数据服务（GMS, Global Meta Service）
+- metadata services（GMS, Global Meta Service）
 
-元数据服务负责维护全局强一致的 Table/Schema, Statistics 等系统 Meta 信息，维护账号、权限等安全信息，同时提供全局授时服务（即 TSO）。
+The metadata service is responsible for maintaining the globally consistent Table/Schema, Statistics and other system Meta information, maintaining the security information such as accounts and permissions, and providing global timing services (ie TSO).
 
-- 日志节点（CDC, Change Data Capture）
+-  Log Node（CDC, Change Data Capture）
 
-日志节点提供完全兼容 MySQL Binlog 格式和协议的增量订阅能力，提供兼容 MySQL Replication 协议的主从复制能力。
+The log node provides incremental subscription capabilities that are fully compatible with the MySQL Binlog format and protocol, and leader/follower replication capabilities that are compatible with the MySQL Replication protocol.
+##### How PolarDB-X works with three copies of MySQL based on Paxos:
 
-##### PolarDB-X基于Paxos的MySQL三副本工作原理：
-
-- 在同一时刻，整个集群中至多会有一个Leader节点来承担数据写入的任务，其余节点作为follower参与多数派投票和数据同步
-
-
-- Paxos的协议日志Consensus Log，全面融合了MySQL原有的binlog内容。在Leader主节点上会在binlog协议中新增Consensus相关的binlog event，同时在Follower备节点上替换传统的Relay Log，备库会通过SQL Thread进行Replay日志内容到数据文件，可以简单理解Paxos Consensus Log ≈ MySQL Binlog
+- At the same time, there will be at most one leader node in the entire cluster to undertake the task of data writing, and the remaining nodes will participate in majority voting and data synchronization as followers
 
 
-- 基于Paxos多数派自动选主机制，通过heartbeat/election timeout机制会监听Leader节点的变化，在Leader节点不可用时Follower节点会自动完成切主，新的Leader节点提供服务之前需等待SQL Thread完成存量日志的Replay，确保新Leader有最新的数据。
+- Paxos' protocol log Consensus Log fully integrates the original binlog content of MySQL. Consensus-related binlog events will be added to the binlog protocol on the Leader master node, and the traditional Relay Log will be replaced on the Follower standby node. The standby library will Replay the log content to the data file through SQL Thread, which can be simply understood. Paxos Consensus Log Technologies MySQL Binlog
 
-##### PolarDB-X技术特点
 
-- 高性能，采用单Leader的模式，可以提供类比MySQL semi-sync模式的性能
+- Based on the Paxos majority automatic master selection mechanism, the heartbeat/election timeout mechanism will monitor the changes of the Leader node. When the Leader node is unavailable, the Follower node will automatically complete the master cutting. Before the new Leader node provides services, it needs to wait for the SQL Thread to complete the Replay of the stock log to ensure that the new Leader has the latest data.
 
-- RPO=0，Paxos协议日志全面融合MySQL原有的binlog内容，基于多数派同步机制确保数据不丢
+##### PolarDB-X technical features
 
-- 自动HA，基于Paxos的选举心跳机制，自动完成节点探活和HA切换。
+- High performance, using a single leader mode, which can provide performance similar to the MySQL semi-sync mode
 
-## 02. DBdoctor纳管PolarDB-X
+- RPO = 0, Paxos protocol log fully integrates the original binlog content of MySQL, and ensures that data is not lost based on the majority synchronization mechanism
 
-### 1）准备已有集中式版本的PolarDB-X
+- Automatic HA, based on Paxos' election heartbeat mechanism, automatically completes node exploration and HA switching.
 
-如果只是用于测试验证可以手动进行PolarDB-X安装，可按照以下方式进行安装部署
+## 02. DBdoctor Nanotube PolarDB-X
 
-#### a）下载
-下载地址：
+### 1）Prepare a centralized version of PolarDB-X
+
+If it is only used for test verification, PolarDB-X can be installed manually, and the installation and deployment can be carried out as follows
+
+#### a）download
+Download address：
 
 https://openpolardb.com/download
 
-![RPM包](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/rpm.png)
+![RPM package](../../images/DbdoctorQuicklyManagesPolardb-x/rpm.png)
 
 
-#### b）PolarDB-X数据库安装和登录
-##### 1. 依赖包安装
+#### b）PolarDB-X database installation and login
+##### 1. Dependent package installation
 ```Bash
 rpm -ivh t-polardbx-engine-2.3.0-b959577.el7.x86_64.rpm
 yum install libaio*
 ```
-##### 2.创建并切换到 polarx 用户
+##### 2.Create and switch to polarx user
 ```Bash
 useradd -ms /bin/bash polarx
 echo "polarx:polarx" | chpasswd
 echo "polarx ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoerssu - polarx# 创建必要目录mkdir polardbx-enginecd polardbx-engine && mkdir log mysql run data tmp
 ```
-##### 3. 创建my.cnf配置文件
+##### 3. Create my.cnf configuration file
 ```Bash
 [mysqld]
 basedir = /opt/polardbx-engine
@@ -103,104 +102,112 @@ cluster_info = 127.0.0.1:14886@1
 [mysqld_safe]
 pid_file = /home/polarx/polardbx-engine/run/mysql.pid
 ```
-##### 4. 初始化
+##### 4. Initialization
 ```Bash
 /opt/polardbx_engine/bin/mysqld --defaults-file=my.cnf --initialize-insecure
 ```
-##### 5. 启动
+##### 5. Start
 ```Bash
 /opt/polardbx_engine/bin/mysqld_safe --defaults-file=my.cnf &
 ```
-##### 6. 登录数据库
+##### 6. Login to the database
 
 ```Bash
 mysql -h127.0.0.1 -P4886 -uroot
 ```
 
-### 2）DBdoctor一键安装部署
+### 2）One-click installation and deployment of DBdoctor
 
-环境要求：4c8g
-下载安装包：
+Environmental requirements: 4c8g
+
+Download installation package:
 https://www.hisensecloud.com/col.jsp?id=126
-解压安装包并执行
+
+Unzip the installation package and execute
 ```Bash
 ./dbd -I
 ```
-![RPM包](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/zip.png)
+![RPM package](../../images/DbdoctorQuicklyManagesPolardb-x/zip.png)
 
 
-安装成功后登录http://<部署服务的主机ip>:13000
-登录账号：tester/Root2023!
-详细安装使用文档：
+After successful installation, log in to http://< host ip of deployment service >: 13000
+
+Login account：tester/Root2023!
+
+Detailed installation and usage documentation:=：
 https://www.hisensecloud.com/h-col-144.html
 
-### 3）DBdoctor纳管PolarDB-X
+### 3）DBDoctor Nantube PolarDB-X
 
-在部署的PolarDB-X进程层面我们能看到几乎和MySQL的集群一致，DBdoctor可以完全按照MySQL的方式进行纳管。DBdoctor的PolarDB-X纳管是按照集群的DN节点维度进行纳管的(DN在进程层面相当于mysqld)，上面三个节点相当于对每个节点进行依次纳管。
+At the level of the deployed PolarDB-X process, we can see that it is almost identical to the MySQL cluster, and DBdoctor can manage it completely in the way of MySQL. DBdoctor's PolarDB-X management is managed according to the DN node dimension of the cluster (DN is equivalent to mysqld at the process level), and the above three nodes are equivalent to managing each node in turn.
 
-![纳管](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/Nanotube.png)
+![Nanotube](../../images/DbdoctorQuicklyManagesPolardb-x/Nanotube.png)
 
-#### a）首先在PolarDB-X上创建数据库账号并授予权限
+#### a）First, create a database account on PolarDB-X and grant permissions
 ```Bash
 create user zx identified by 'Root2023!';
 GRANT SELECT, PROCESS, SHOW VIEW ON *.* TO 'zx'@'%';
 ```
-#### b）在DBdoctor的实例列表页面进行集中式PolarDB-X纳管
+#### b）Centralized PolarDB-X management on DBdoctor's instance list page
 
-切换到‍实例列表的tab，点击实例纳管按钮，进行实例录入。
+Switch to the tab of the instance list, click the instance management button, and enter the instance.
 
-##### ① 录入实例的主数据库基本信息，并进行连通性检测：
-点击“实例纳管”按钮可进行用户已有存量的数据库实例录入 。
-- 可配置该实例的数据库基本信息，包括实例备注、数据库访问地址
+##### ①  enter the basic information of the Master Data database of the instance and perform connectivity testing:
+Click the "Instance Management" button to enter the existing database instances of the user.
 
-- 可设置数据库实例的账号信息，包括实例的账号和密码
+- Configurable database basic information for this instance, including instance notes and database access addresses
 
-- 可进行数据库实例的连通性检测
+- Can set the account information of the database instance, including the account and password of the instance
 
-![录入实例](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/InputInstance.png)
+![Input Instance](../../images/DbdoctorQuicklyManagesPolardb-x/InputInstance.png)
 
-##### ② 配置数据洞察
-> 设置洞察日志存储的天数（默认为10天）
-##### ③ 选择采集方式
-针对PolarDB-X数据采集方式选择部署Agent，用来采集主机和实例性能数据，锁和审计日志相关当前版本还不支持，后续会考虑对该引擎的适配支持。
+##### ② Configuration Data Insights
+> Set the number of days for Insight log storage (default is 10 days)
+##### ③ Select Collection Method
+Deploy Agent for PolarDB-X Data Acquisition mode to collect performance data from hosts and instances. Lock and audit logs are not currently supported in the current version. Adaptation support for this engine will be considered in the future.
 
-![数据采集](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/DataAcquisition.png)
+![Data Acquisition](../../images/DbdoctorQuicklyManagesPolardb-x/DataAcquisition.png)
 
-## 03. 如何使用DBdoctor对PolarDB-X进行性能诊断
+## 03. How to use DBdoctor for performance diagnosis of PolarDB-X
 
-### 1）开启性能分析
+### 1）Enable performance analysis
 
-查看实例列表找到PolarDB-X的纳管数据库节点，点击该实例节点的性能分析开关就可以对该实例进行性能洞察功能接管。PolarDB-X的锁分析功能暂未开放（审计日志和4大锁场景诊断），需要后续版本GA后才能支持该功能。
-![性能分析](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/PerformanceAnalysis.png)
+Check the instance list to find the management database node of PolarDB-X. Click the performance analysis switch of the instance node to take over the performance insight function of the instance. The lock analysis function of PolarDB-X is not yet available (audit logs and diagnosis of the four major lock scenarios), and this function can only be supported after the subsequent version GA.
 
-### 2）查看性能洞察
-点击性能洞察按钮进行该实例的性能分析。
+![[Performance Analysis](../../images/DbdoctorQuicklyManagesPolardb-x/PerformanceAnalysis.png)
 
-![性能洞察](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/PerformanceInsight.png)
+### 2）View performance insights
+Click the Performance Insights button to perform a performance analysis of this instance.
 
-点击后可以查看该实例的性能洞察分析结果。
+![Performance Insights](../../images/DbdoctorQuicklyManagesPolardb-x/PerformanceInsight.png)
 
-![分析结果](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesPolardb-x/AnalysisResult.png)
+Click to view the performance insights analysis results of the instance.
 
-#### 性能洞察的详细功能主要分为下面7个部分：
+![Analysis Results](../../images/DbdoctorQuicklyManagesPolardb-x/AnalysisResult.png)
 
-**1. 实例搜索**：用户可以选择已接管的实例进行性能洞察的功能展示，实例指定时间区间或者近5m、1h、5h、24h、2d的快速时间选择搜索，并可指定刷新频率。
+#### The detailed features of Performance Insights are mainly divided into the following 7 parts:
 
-**2. 关键资源**：展示实例关键资源的使用情况来评估是否存在资源瓶颈，显示该实例的DB维度/主机维度的关键资源使用率指标的趋势图，指标包括CPU使用率、MEM使用率、IOPS使用率、DISK Space使用率、连接数使用率。同时展示当前时间区间内的各指标的最大值。
+**1. Instance search**：Users can choose the instance that has been taken over for performance insight function display, the instance specifies the time interval or the fast time selection search of nearly 5m, 1h, 5h, 24h, 2d, and can specify the refresh rate.
 
-**3. 业务流量**：展示业务的流量指标，包括网络包的进出流量，数据库层面的业务QPS情况。
+**2. Key resources**：Display the usage of key resources of the instance to evaluate whether there is a resource bottleneck, and display the trend graph of key resource usage indicators of the DB dimension/host dimension of the instance, including CPU usage, MEM usage, IOPS usage, DISK Space usage, and connection usage. At the same time, display the maximum value of each indicator in the current time interval.
 
-**4. AAS**：通过业务的数据库平均活跃会话来展示数据库的负载，同时展示负载中的TOP等待事件。
+**3. Business traffic**：Display the traffic indicators of the business, including the incoming and outgoing traffic of network packets and the QPS situation of the business at the database level.
 
-**5. 关联SQL**：展示AAS负载相关联的根因SQL,同时可以查看该SQL的最差样本，并可以进行执行计划展示。
+**4. AAS**：Show the database load through the average active session of the business database, and show the TOP waiting events in the load.
 
-**6. 业务负载流量分布**：按照用户/来源服务IP维度展示AAS负载，评估数据库负载问题的源头来自哪个业务系统。
+**5. Associated SQL**： Show the root cause SQL associated with the AAS load, and you can also view the worst sample of the SQL and perform execution plan display.
 
-**7. 专家经验库**：详细展示性能问题事件的专家经验文档，从原理上解释这一事件是如何产生，应该怎样进行优化。
-#### 性能洞察实践：
+**6. Business load traffic distribution**：display the AAS load according to the user/source service IP dimension, and evaluate which business system the source of the database load problem comes from.
 
-性能洞察最大特色是可以将上面所有维度的指标性能数据通过时间轴关联起来，并进行分析。比如上面的CPU异常的Case我们只需要4步走即可找到问题SQL根因。
-**step1**：cpu资源指标在15:45~16:20发生抖动，CPU存在打满的情况
-**step2**：在AAS模块中我们能看到数据库的活跃会话数在这一时间区间内远超Max vCPU水位线，说明存在性能瓶颈
-**step3**：可以看到性能瓶颈的事件是Sending data（即绿色颜色事件），而这一颜色在AAS趋势图中占的面积最大，点击事件也可以看到最右边的专家经验文档。
-**step4**：基于这个面积最大颜色的事件，我们能找到绿色颜色的SQL为第一条，即导致CPU飙高的根因SQL。点击展开这个SQL可以展示这个SQL的最差样本，点击执行计划发现扫描全表扫描4w多行，对SQL进行添加索引即可。
+**7. Expert experience database**：Show in detail the expert experience document of the performance problem event, explain how the event is generated in principle, and how to optimize it.
+#### Performance Insight Practice：
+
+The biggest feature of Performance Insight is the ability to correlate performance data from all dimensions through a timeline for analysis. For example, in the CPU exception case mentioned above, we only need 4 steps to find the root cause of the problem in SQL.
+
+Step 1 : CPU resource indicators jitter occurs at 15:45~ 16:20, and the CPU is full.
+
+Step 2 : In the AAS module, we can see that the number of active sessions in the database far exceeds the Max vCPU waterline in this time interval, indicating that there is a performance bottleneck.
+
+Step 3 : The event where you can see the performance bottleneck is Sending data (i.e. green color event), and this color occupies the largest area in the AAS trend chart. Clicking on the event can also see the expert experience document on the far right.
+
+Step 4 : Based on the event with the largest color in this area, we can find the green SQL as the first one, which is the root cause of the CPU surge. Click to expand this SQL to show the worst sample of this SQL, click to execute the plan to find the full table scan more than 40,000 rows, and add an index to the SQL.

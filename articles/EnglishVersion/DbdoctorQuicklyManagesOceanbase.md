@@ -1,69 +1,69 @@
-# DBdoctor快速纳管OceanBase
+# DBdoctor Quick Narrow Tube OceanBase
 
-## OceanBase纳管架构
+## OceanBase architecture
 
-![纳管架构](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesOceanbase/ManagementArchitecture.png)
+![Nanotube Architecture](../../images/DbdoctorQuicklyManagesOceanbase/ManagementArchitecture.png)
 
-DBdoctor按照节点级别进行分别纳管，只需要找个ecs服务器进行一键安装部署，然后全流程web界面操作即可完成纳管OceanBase的实例。agent以主机维度进行部署，一个主机只需要部署一个agent即可完成对主机上所有的数据库节点进行指标采集。
+DBdoctor only needs to find an ecs server for one-click installation and deployment, and then the whole process of web interface operation can complete the storage of OceanBase instances. Agents are deployed in the host dimension, and a host only needs to deploy one agent to complete the index collection of all database nodes on the host.
 
-1. OceanBase按照OBServer节点进行纳管，这里我们需要分别对OBserver1、OBserver2、OBserver3、OBserver4、OBserver5、OBserver6进行纳管。
+1. OceanBase is managed according to the OBServer node. Here we need to manage OBserver1, OBserver2, OBserver3, OBserver4, OBserver5, and OBserver6 respectively.
 
-2. OceanBase的节点是可以分布式扩展的，如果新增节点，还需要按照上面方式对新增节点进行纳管。
+2. OceanBase nodes can be expanded in a distributed manner. If new nodes are added, they need to be managed according to the above method.
 
-### 1）1分钟零依赖DBdoctor Server安装
+### 1）1 minute zero dependency DBdoctor Server installation
 
-**环境要求**：4c8g（建议独立的资源部署）
-**下载安装包**：https://www.hisensecloud.com/h-col-126.html
+**Environmental requirements**：4c8g (independent resource deployment recommended)
+**Download the installation package**：https://www.hisensecloud.com/h-col-126.html
 
 ```Bash
-#解压安装包并执行一条命令即可部署完成
+#Unzip the installation package and execute a command to complete the deployment
 ./dbd -I
 ```
-![安装](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesOceanbase/Install.png)
+![install](../../images/DbdoctorQuicklyManagesOceanbase/Install.png)
 
-**服务访问地址**：http://<部署服务的主机ip>:13000
-**登录账号**：tester/Root2023!
-**详细文档**：https://www.hisensecloud.com/h-col-144.html
+**Service access address**：http:// host IP where the service is deployed:13000
+**Login account**：tester/Root2023!
+**Detailed documentation**：https://www.hisensecloud.com/h-col-144.html
 
-### 2）快速纳管OceanBase
+### 2）Fast Transit OceanBase
 
-#### a）首先在OceanBase上创建数据库账号并授予权限
+#### a）First create a database account on OceanBase and grant permissions
 ```Bash
 create user zx identified by 'Root2023!';
 GRANT SELECT, PROCESS, SHOW VIEW ON *.* TO 'zx'@'%';
 ```
-#### b）在DBdoctor的实例列表页面进行OceanBase实例纳管
+#### b）OceanBase instance management on the DBdoctor instance list page
 
-- 点击“实例纳管”按钮录入实例的数据库访问地址、账号密码等基本信息，然点击连通性检测提示Sucess表示校验正确。
+-  Click the "Instance Nanotube" button to enter the database access address, account password and other basic information of the instance, and then click the connectivity detection prompt Sucess to indicate that the verification is correct.
 
-- 默认采用agent方式进行数据采集，录入主机账号信息，支持自动和手动两种方式进行agent安装。
-![实例纳管](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesOceanbase/InstanceManagement.png)
+- By default, the agent method is used for Data Acquisition, and the host account information is entered. It supports automatic and manual agent installation.
 
-**备注**：agent系统支持说明:支持 X86_64 和ARM系统，不支持x86_32服务器。两个连通性检测都通过，恭喜你实例纳管成功，即可开启性能诊断。
+![Instance Nanotube](../../images/DbdoctorQuicklyManagesOceanbase/InstanceManagement.png)
 
-### 3）如何使用性能洞察功能
-#### a） 开启性能分析
+**Remarks**：Agent system support description: support X86_64 and ARM system, do not support x86_32 server. Both connectivity tests have passed, congratulations on your successful instance management, you can start the performance diagnosis.
 
-实例列表中找到已纳管的OceanBase节点，点击性能洞察开关按钮即可开启分析。
+### 3）How to use the performance insights feature
+#### a） Enable performance analysis
 
-#### b）查看性能洞察
+Find the OceanBase node that has been taken in the instance list, and click the Performance Insights switch button to start the analysis.
 
-点击性能洞察透视OceanBase的节点性能。
+#### b）View performance insights
+Click Performance Insights to gain insight into OceanBase's node performance.
 
-![节点性能](https://github.com/DBdoctor-DAS/DBdoctor/blob/main/images/DbdoctorQuicklyManagesOceanbase/NodePerformance.png)
+![Node performance](../../images/DbdoctorQuicklyManagesOceanbase/NodePerformance.png)
 
-性能洞察功能可将硬资源和数据库等多维度的指标性能数据通过时间轴关联起来，并进行分析。比如上面的**CPU异常的Case**我们只需要**1步走即可找到问题根因SQL**，同时可以**还原**异常时间区间**详细现场**。
+The performance insight function can correlate multi-dimensional index performance data such as hard resources and databases through the timeline and analyze them. For example, the above CPU abnormal Case we only need 1 step to find the root cause of the problem SQL , and can restore the detailed scene of the abnormal time interval.
 
-- **自动根因识别**：CPU资源指标发生抖动，自动框选异常区间并提示根因SQL。
+- **Automatic root cause recognition**：CPU resource indicators jitter, automatically box the abnormal interval and prompt the root cause SQL.
 
-- **详细现场还原**：
+- **Detailed site restoration**：
 
-    - CPU异常时间区间框选
+    - CPU abnormal time interval box selection
 
-    - 异常时间区间在AAS模块中我们能看到数据库的活跃会话数在这一时间区间内**超Max vCPU水位线**，说明存在**性能瓶颈**
+    - Abnormal time interval In the AAS module, we can see that the number of active sessions of the database exceeds the Max vCPU water level line in this time interval, indicating that there is a performance bottleneck
 
-    - 可以看到性能瓶颈的事件是ACTIVE（即蓝颜色事件），而这一**颜色**在AAS趋势图中占的**面积最大**。
+    - The event where performance bottlenecks can be seen is ACTIVE (i.e. blue color event), and this color accounts for the largest area in the AAS trend chart.
 
-    - 基于这个面积最大颜色的事件，我们能找到绿色颜色的SQL为第一条，即导致CPU飙高的根因SQL。点击展开这个SQL可以展示这个SQL的**最差样本**，点击执行计划发现扫描全表扫描行，对SQL进行添加索引即可。
+    - Based on the event with the largest color in this area, we can find the green-colored SQL as the first one, that is, the root cause SQL that caused the CPU to skyrocket. Click to expand this SQL to show the worst sample of this SQL, click Execution Plan Discovery to scan the full table to scan the rows, and add an index to the SQL.
 
 
