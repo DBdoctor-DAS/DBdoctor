@@ -1,19 +1,19 @@
-# eBPF实战教程二｜数据库网络流量最精准的量化方法(含源码)
+# eBPF Practical Tutorial 2 | The most accurate quantification method for database network traffic (including source code)
 
-## 前言
-自从DBdoctor率先将eBPF技术深度应用于数据库领域后，便迅速在业界引起了广泛的关注和讨论。阿里、美团、京东、字节跳动等众多头部企业纷纷主动与我们展开了深入的技术交流。与此同时，我们也收获了大量eBPF爱好者的关注，在第一篇关于uprobe的文章发布后，许多小伙伴都已按教程成功跑通代码并进行深入自学应用。
+## Preface
+Since DBdoctor took the lead in deeply applying eBPF technology to the database field, it has quickly attracted widespread attention and discussion in the industry. Many leading companies such as Alibaba, Meituan, JD.com, ByteDance, etc. have actively engaged in in-depth technical exchanges with us. At the same time, we have also gained a large number of eBPF enthusiasts' attention. After the first article about uprobe was published, many friends have successfully run the code according to the tutorial and conducted in-depth self-learning and application.
 
-应广大读者的热情催促，现推出第二篇eBPF的纯技术分享文章——如何手码一个Kprobe函数来分析MySQL数据库的网络流量。旨在为大家提供更多关于eBPF的深入分析和实用指南，希望本文能对大家有所帮助，后续我们也将持续在此专题内发布更多技术文章，欢迎关注公众号！
+In response to the enthusiastic urging of readers, we are now launching the second pure technical sharing article on eBPF - How to manually code a Kprobe function to analyze the network traffic of MySQL database. The aim is to provide more in-depth analysis and practical guidance on eBPF. We hope this article can be helpful to everyone. We will continue to publish more technical articles in this topic in the future. Welcome to follow our official account!
 
-## 什么是Kprobe
-Kprobe是Linux内核提供的一种动态跟踪技术，它可以在运行时动态地在函数的开头、返回点或指令地址处插入探测点。利用kprobe技术，可以在内核函数中动态插入探测点，收集有关内核执行流程、寄存器状态、全局数据结构等详细信息，无需重新编译或修改内核代码，实现对函数的监控和分析。Kprobe极大地增强了内核调试和性能分析的灵活性，可应用于网络优化、安全控制、性能监控、故障诊断等场景，使得开发者能够更深入地理解内核的行为。特别是数据库性能诊断这块，Probe重新定义数据库可观测，可以快速准确找出潜在性能问题并优化。
-## Kprobe函数的选取
+## What is Kprobe?
+Kprobe is a dynamic tracing technology provided by the Linux kernel. It can dynamically insert probe points at the beginning, return point, or instruction address of a function at runtime. Using kprobe technology, probe points can be dynamically inserted into kernel functions to collect detailed information about kernel execution flow, register status, global data structure, etc., without the need to recompile or modify kernel code, achieving monitoring and analysis of functions. Kprobe greatly enhances the flexibility of kernel debugging and performance analysis, and can be applied to scenarios such as network optimization, security control, performance monitoring, and fault diagnosis, enabling developers to have a deeper understanding of kernel behavior. Especially in the field of database performance diagnosis, Probe redefines database observability, which can quickly and accurately identify potential performance issues and optimize them.
+## Selection of Kprobe function
 
-### 1）网络协议栈解析，获取MySQL SQL执行返回给客户端的函数
-基于Kprobe的流量探测，需要对网络协议栈进行分析，下图是网络数据包的发送过程：
+### 1）Network protocol stack parsing, get the function returned by MySQL SQL execution to the client
+Based on Kprobe traffic detection, it is necessary to analyze the network protocol stack. The following figure shows the sending process of network data packets.
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnPxt8yeZvBP4svKcohnEyearsEZVSyMtCgZib6VFIwEQsiaevbHLFsoTU4pKeibjVqgekKKOl7M6faA/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-从上面的协议栈的函数调用可以看到，tcp_sendmsg函数是发送包的入口函数：
+From the function call of the protocol stack above, we can see that tcp_sendmsg function is the entry function for sending packets.
 
 ```C
 int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
@@ -28,24 +28,25 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
 }
 ```
 
-从函数的源码我们可以得知，该函数返回值即为我们需要的结果（即发送数据包的大小）。
+From the source code of the function, we can know that the return value of the function is the result we need (i.e. the size of the data packet sent).
 
-因此，我们可以选取传输层中的tcp_sendmsg函数作为探测点，来统计数据库发送应用端每秒的数据包总量。
+Therefore, we can select the tcp_sendmsg function in the transport layer as the probe point to Statistical Data database to send the total amount of data packets per second.
 
-### 2）网络协议栈解析，找到MySQL从客户端接收数据包的函数
-基于Kprobe的流量探测，需要对网络协议栈进行分析，下图是网络数据包的接收过程：
+### 2）Network protocol stack parsing, find the function of MySQL receiving data packets from clients
+Based on Kprobe traffic detection, it is necessary to analyze the network protocol stack. The following figure shows the process of receiving network data packets.
+
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnPxt8yeZvBP4svKcohnEyeouGrIO8kwDLWgtkRZ8NXffIpyb10jaNoOCHGGTPvibCxWtwCXBeGfoQ/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-对于统计TCP接收的网络流量，应该选择tcp_cleanup_rbuf函数，而不是选择tcp_recvmsg。选用tcp_recvmsg函数会存在统计的重复和遗漏：
+For counting the network traffic received by TCP, tcp_cleanup_rbuf function should be selected instead of tcp_recvmsg. Choosing tcp_recvmsg function will result in duplicate and omitted statistics.
 
-- tcp_recvmsg()是一个在TCP接收路径上较高层的函数，它负责从TCP层向用户空间复制数据。当应用程序调用如recv()或read()这类函数来从TCP缓冲区读取数据时，tcp_recvmsg()会被触发。如果数据在TCP接收缓冲区中未被应用程序完全读取（例如，应用程序两次调用recv()读取同一数据段的不同部分），每次调用tcp_recvmsg()都会被触发。这可能导致在统计时同一数据被计算多次。
+- tcp_recvmsg () is a higher-level function on the TCP receive path that is responsible for copying data from the TCP layer to user space. When an application calls a function such as recv () or read () to read data from the TCP buffer, tcp_recvmsg () is triggered. If the data is not fully read by the application in the TCP receive buffer (for example, if the application calls recv () twice to read different parts of the same data segment), each call to tcp_recvmsg () will be triggered. This may result in the same data being evaluated multiple times during statistics.
 
-- TCP数据可能由于内核的优化处理（如紧急数据处理、某些安全检查导致的数据丢弃）而未达到tcp_recvmsg()层会导致统计的遗漏。
+- TCP data may not reach the tcp_recvmsg () layer due to kernel optimization processing (such as emergency data processing, data discard due to certain security checks), resulting in statistical omissions.
 
-- 使用某些直接输入输出操作（如splice系统调用）可以绕过常规的recvmsg路径，直接从内核缓冲区向用户空间或其他文件描述符传输数据，这些操作不会触发tcp_recvmsg()。
-tcp_cleanup_rbuf 这个函数在TCP数据确认已被接收（即数据已经从内核传输到了用户空间，并得到了处理）后调用，因此可以更可靠地统计到实际被应用消费的数据量，而不会重复也不会遗漏。
+- Some direct input/output operations (such as splice system calls) can bypass the regular recvmsg path and transfer data directly from the kernel buffer to user space or other file descriptors without triggering tcp_recvmsg ().
+tcp_cleanup_rbuf this function is called after TCP data has been received (that is, the data has been transferred from the kernel to user space and processed), it can more reliably count the amount of data actually consumed by the application without duplication or omission.
 
-该函数原型如下：
+The function prototype is as follows:
 ```C
 void tcp_cleanup_rbuf(struct sock *sk, int copied)
 {
@@ -59,34 +60,34 @@ void tcp_cleanup_rbuf(struct sock *sk, int copied)
 }
 ```
 
-函数中第二个形参copied即为接收的数据包大小。
+The second parameter copied in the function is the size of the received data packet.
 
-因此，我们可以选取传输层中的tcp_cleanup_rbuf函数作为探测点，来统计数据库每秒从应用端接收的数据包总量。
+Therefore, we can select the tcp_cleanup_rbuf function in the transport layer as the probe point to Statistical Data database receives the total amount of data packets per second from the application side.
 
-## eBPF kprobe如何探测MySQL的每秒发送和接收数据包?
-### 1）环境准备
-> 准备一台 Linux 机器，安装好g++和bcc
+## How to detect MySQL's sending and receiving data packets per second with eBPF kprobe?
+### 1）Environment preparation
+> Prepare a Linux machine and install g ++ and bcc
 
-### 2）基于BCC工具实现探测MySQL
-要实现包量的统计，我们首先定义一个存储结构用来存放进程的收发包的总Size，基于Kprobe分别对接收包和发送包进行累加并存储到该结构中，然后每秒去读并打印当前存储结构中累加的数据包量，即可实现每秒的接收和发送数据包的采集。
+### 2）Implement MySQL detection based on BCC tool
+To achieve packet statistics, we first define a storage structure to store the total size of the released version of the process's received code packets. Based on Kprobe, the received and sent packets are accumulated and stored in the structure. Then, the accumulated data packets in the current storage structure can be read and printed every second to achieve the collection of received and sent data packets per second.
 
-接下来我们将基于BCC，利用Kprobe写一个eBPF程序，观测MySQL的接收和发送的数据包（即MySQL的NetIO统计）。
-#### a）分析内核网络协议栈源码相关网络数据包处理的函数
+Next, we will write an eBPF program based on BCC using Kprobe to observe the data packets received and sent by MySQL (i.e. MySQL's NetIO statistics).
+#### a）Analyze the kernel network protocol stack source code related network data packet processing function
 
 ```C
-//内核网络协议栈的发送包函数（返回值）
+//Send packet function of kernel network protocol stack (return value)
 int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size){
   ...
 }
-//内核网络协议栈的接收包函数（入参）
+//receive packet function of kernel network protocol stack (imported parameter)
 void tcp_cleanup_rbuf(struct sock *sk, int copied){
   ...
 }
 ```
-#### b）导入BCC的BPF对象
+#### b）Import BPF objects from BCC
 
 ```C
-//这个对象可以将我们的观测代码嵌入到观测点中执行
+//This object can embed our observation code into the observation point for execution
 #include <bcc/BPF.h>
 
 #include <string>
@@ -94,7 +95,7 @@ void tcp_cleanup_rbuf(struct sock *sk, int copied){
 #include <thread>
 #include <time.h>
 ```
-#### c）用c编写eBPF代码
+#### c）Write eBPF code in C
 ```C
 
 std::string strBPF = R"(
@@ -107,19 +108,19 @@ std::string strBPF = R"(
 #include <linux/socket.h>
 #include <net/inet_sock.h>
 
-//定义采集的指标存储结构key
+//Define the index storage structure key for collection.
 struct key_t {
     u32 pid;
     u16 type;
 };
 
-//定义采集的指标存储结构value
+//Define the index storage structure value for collection
 BPF_HASH(net_map, struct key_t,u64);
 
-//获取mysql执行sql返回的数据包，hook对返回值进行处理
+//Get the data packet returned by MySQL when executing SQL, and process the return value with the hook
 int kretprobe__tcp_sendmsg(struct pt_regs *ctx)
 {
-    /*获取当前进程的pid*/
+    /*Get the pid of the current process.*/
     u32 pid = bpf_get_current_pid_tgid() >> 32;
 
     if(FILTER_PID) return 0;
@@ -140,15 +141,15 @@ int kretprobe__tcp_sendmsg(struct pt_regs *ctx)
 }
 
 
-//获取发送给mysql的数据包，hook对函数入参进行处理
+//Get the data packet sent to MySQL, and handle the function imported parameters with the hook
 int kprobe__tcp_cleanup_rbuf(struct pt_regs *ctx, struct sock *sk, int copied)
 {
-    /*获取当前进程的pid*/
+    /*Get the pid of the current process.*/
     u32 pid = bpf_get_current_pid_tgid() >> 32;
 
     if(FILTER_PID) return 0;
 
-    /*检错*/
+    /* Error detection*/
     if (copied <= 0) return 0;
     struct key_t key = {};
     key.pid = pid;
@@ -163,10 +164,10 @@ int kprobe__tcp_cleanup_rbuf(struct pt_regs *ctx, struct sock *sk, int copied)
 
 )";
 ```
-#### d）观测代码关联网络协议栈中需要观测的函数
+#### d）Observe the function that needs to be observed in the associated network protocol stack
 ```C
 
-//用于ebpf代码程序中的pid替换
+//Used for pid replacement in ebpf code programs
 static std::string str_replace(std::string r, const std::string& s, const std::string& n)
 {
         std::string y = std::move(r);
@@ -181,7 +182,7 @@ struct net_key_t {
     uint16_t type;
 };
 
-//指定进程pid进行kprobe包统计
+//Specify process pid for kprobe package statistics
 int main(int argc, char* argv[]) {
     int pid = std::stoull(argv[1]);
     ebpf::BPF bpf;
@@ -193,19 +194,19 @@ int main(int argc, char* argv[]) {
         std::cerr << "bpf init error,msg: " << initRes.msg() << std::endl;
         return 1;
     }
-    /*探测tcp_sendmsg*/
+    /*Detection tcp_sendmsg*/
     auto attachRes = bpf.attach_kprobe("tcp_sendmsg", "kretprobe__tcp_sendmsg",0,BPF_PROBE_RETURN);
     if(!attachRes.ok()) {
         std::cerr << "attach tcp_sendmsg error,msg: "<< attachRes.msg() << std::endl;
         return 1;
     }
-     /*探测tcp_cleanup_rbuf*/
+     /*Detection tcp_cleanup_rbuf*/
     attachRes = bpf.attach_kprobe("tcp_cleanup_rbuf", "kprobe__tcp_cleanup_rbuf");
     if(!attachRes.ok()) {
         std::cerr << "attach tcp_cleanup_rbuf error,msg: "<< attachRes.msg() << std::endl;
         return 1;
     }
-    /*每秒完成一次读取并打印*/
+    /*Read and print once per second*/
     while (true){
             std::this_thread::sleep_for(std::chrono::seconds(1));
             auto net_map = bpf.get_hash_table<net_key_t, uint64_t>("net_map");
@@ -217,27 +218,27 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 ```
-#### e）效果演示
-编译并执行该eBPF程序
+#### e）Effect demonstration
+Compile and execute the eBPF program
 ```Bash
-#编译命令
+#compile command
 g++ -std=c++17 -o static_netio static_netio.cpp -lbcc -pthread
 ```
-指定mysqld进程pid 2004756进行netio采集：
+Specify the mysqld process pid 2004756 for netio collection.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnPxt8yeZvBP4svKcohnEyeh689a6ZZ6NpjYGdXV4IFvQAickuwb4A6iaM7OoWMdh8QhwGkBAbG28Eg/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-远程执行连接MySQL的命令并执行SQL
+Execute commands to connect to MySQL remotely and execute SQL.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnPxt8yeZvBP4svKcohnEyed44kYTgAUf1Nwy380kyJAWib3PcxfRibjCVCbSt2I3AoX6CIBu4nYEJg/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-打印观测的结果
+Print the results of observations
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnPxt8yeZvBP4svKcohnEyezUqZpyYVicItXze24ZdTnkaPshyd2OF041xmebicN5AkMbkcAib7aBiaEw/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-从上面的演示中我们能看到，客户端和MySQL建立连接，每秒会打印日志，显示这个读取累加send和recv数据包的时间、mysqld的进程pid、send累加的数据包和recv累加的数据包大小。然后我们针对采集上来的数据就可以做分析了：
-- 如果存在send数据包过大，说明数据库上存在较大的流量或者单条大SQL执行完会有大量的数据返回，比如全表查询返回这种，会导致应用出现内存大量占用问题，甚至引发OOM。
-- 如果存在recv数据包过大，说明用户应用端发送给数据库的SQL文本存在过大问题，需要业务进一步关注业务逻辑是否正常。
-## 总结
+From the above demonstration, we can see that when the Client establishes a connection with MySQL, a log is printed every second, showing the time it takes to read and accumulate send and recv data packets, the process pid of mysqld, the size of the data packets accumulated by send and recv. Then we can analyze the collected data.
+- If there is a large send data packet, it indicates that there is a large amount of traffic on the database or a large amount of data will be returned after executing a single large SQL, such as a full table query, which will cause the application to occupy a large amount of memory and even trigger OOM.
+- If the recv data packet is too large, it indicates that the SQL text sent by the user application to the database is too large, and the business needs to further pay attention to whether the business logic is normal.
+## Summary
 
-利用eBPF技术探测MySQL ,具有更高效，更扩展，更安全等优势，不用修改内核就可观测数据库性能。通过上面例子您是否发现采用eBPF跟踪数据库其实并不难，主要门槛在于需精通数据库内核和Linux编程，而且要对代码有精益求精的意识。
+Using eBPF technology to probe MySQL has the advantages of being more efficient, scalable, and secure, and can observe database performance without modifying the kernel. Through the above example, have you found that using eBPF to track databases is not difficult? The main threshold is to be proficient in database kernel and Linux programming, and to have a sense of excellence in the code.

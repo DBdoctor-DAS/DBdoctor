@@ -1,52 +1,54 @@
-# eBPF专题一 | 手把手教你用eBPF诊断MySQL(含源码)
+# eBPF Topic 1 | Step-by-step guide to diagnose MySQL with eBPF (including source code)
 
-## 背景
-被称之为“革命性”内核技术的eBPF一直以来都备受关注，而DBdoctor作为一款数据库性能诊断工具，首次将eBPF技术深入应用在了数据库领域，目前已涵盖SQL性能审核、问题SQL一分钟定位、锁分析、审计日志、根因诊断、索引推荐、智能巡检等诸多功能。很多小伙伴对如何利用eBPF技术观测数据库内核有浓厚兴趣，因此我们在【DBdoctor】公众号开设了eBPF技术专栏，将定期与您分享eBPF相关的技术文章，手把手教您使用eBPF探测数据库，欢迎关注我们！
+## Background
+eBPF, known as the "revolutionary" kernel technology, has always been highly regarded. As a database performance diagnostic tool, DBdoctor has deeply applied eBPF technology to the database field for the first time. Currently, it covers many functions such as SQL performance auditing, problem SQL one-minute positioning, lock analysis, audit logs, root cause diagnosis, index recommendation, and intelligent inspection. Many friends are interested in how to use eBPF technology to observe the database kernel. Therefore, we have opened an eBPF technology column on the [DBdoctor] official account, which will regularly share eBPF-related technical articles with you and teach you how to use eBPF to detect databases. Welcome to follow us!
 
-本文是eBPF专题的首篇，将用一个具体的例子介绍如何采用eBPF在MySQL连接校验处加探针，并打出hello world，快来一起体验eBPF的强大吧！
-## eBPF 概述
+This article is the first installment of the eBPF topic. It will use a specific example to introduce how to use eBPF to add probes to MySQL connection validation and type hello world. Come and experience the power of eBPF together!
+## Overview of eBPF
 
-eBPF (extended Berkeley Packet Filter)是一种在Linux内核中执行代码的技术，它允许开发人员在不修改内核代码的情况下运行特定的功能。传统的BPF 只能用于网络过滤，而 eBPF则更加强大和灵活，有更多的应用场景，包括网络监控、安全过滤和性能分析等。uprobe是eBPF的一种使用方式，它允许我们在用户空间的应用程序中插入代码来监控和分析内核中的函数调用。
-具体来说，eBPF uprobe可以在用户空间的应用程序中选择一个目标函数，并在该函数执行之前和之后插入自定义的代码逻辑。这样可以实现对目标函数的监控、性能分析、错误检测等功能。通过eBPF uprobe，我们可以在不修改内核源代码的情况下，对内核中的函数进行动态追踪和分析。
-## 01. 工作原理
+eBPF (Extended Berkeley Packet Filter) is a technology that executable code in the Linux kernel, allowing developers to run specific functions without modifying the kernel code. Traditional BPF can only be used for network filtering, while eBPF is more powerful and flexible, with more application scenarios, including network monitoring, security filtering, and performance analysis. Uprobe is a usage of eBPF, which allows us to insert code in user-space applications to monitor and analyze function calls in the kernel.
+Specifically, eBPF uprobe can select a target function in a user-space application and insert custom code logic before and after the function execution. This can achieve functions such as monitoring, performance analysis, and error detection of the target function. With eBPF uprobe, we can dynamically track and analyze functions in the kernel without modifying the kernel source code.
+
+## 01. Working principle
 ![uprobe](../../images/EBPF01/uprobe.png)
-uprobe是一种用户探针，uprobe探针允许在用户程序中动态插桩，插桩位置包括：函数入口、特定偏移处，以及函数返回处。当我们定义uprobe时，内核会在附加的指令上创建快速断点指令，当程序执行到该指令时，内核将触发事件，程序陷入到内核态，并以回调函数的方式调用探针函数，执行完探针函数再返回到用户态继续执行后序的指令。
 
-uprobe基于文件，当一个二进制文件中的一个函数被跟踪时，所有使用到这个文件的进程都会被插桩，这样就可以在全系统范围内跟踪系统调用。uprobe适用于在用户态去解析一些内核态探针无法解析的流量，例如http2流量（报文header被编码，内核无法解码）、https流量（加密流量，内核无法解密）等。
+Uprobe is a type of user probe that allows dynamic instrumentation in user programs. The instrumentation locations include: function entry, specific offset, and function return. When we define uprobe, the kernel creates a fast breakpoint instruction on the attached instruction. When the program executes the instruction, the kernel triggers an event, the program enters Kernel Mode, and calls the probe function as a callback function. After executing the probe function, it returns to User Mode to continue executing subsequent instructions.
 
-## 02. eBPF uprobe如何探测MySQL?
-### 1）环境准备
-> 准备一台 Linux 机器，安装好 Python 和内核开发包。（注：内核开发包版本必须和内核版本一致）
-安装带有符号表的MySQL
+Uprobe is based on files. When a function in a binary file is tracked, all processes that use this file will be instrumented, so that system calls can be tracked throughout the system. Uprobe is suitable for parsing traffic that cannot be parsed by Kernel Mode probes in User Mode, such as HTTP2 traffic (packet headers are encoded and cannot be decoded by the kernel), HTTPS traffic (encrypted traffic, which the kernel cannot decrypt), etc.
 
-### 2）基于BCC工具实现探测MySQL
+## 02. How to detect MySQL with eBPF uprobe?
+### 1）Environment preparation
+> Prepare a Linux machine and install Python and kernel development package. (Note: The kernel development package version must be consistent with the kernel version)
+Install MySQL with symbol tables.
+
+### 2）Implement MySQL detection based on BCC tool
 
 ![uprobe](../../images/EBPF01/bcc.png)
-BCC程序使用 Python 编写，它会嵌入一段 c 代码，执行时将 c 代码编译成BPF字节码加载到内核运行。而 Python 代码可以通过 perf event 从内核将数据拷贝到用户空间读取到数据然后展示出来。
+The BCC program is written in Python and embeds a piece of C code. During execution, the C code is compiled into BPF bytecode and loaded into the kernel for execution. Python code can copy data from the kernel to user space through perf events, read the data, and then display it.
 
-接下来我们将基于BCC的uprobe，写一个eBPF程序，观测MySQL上是否存在大量短连接。
+Next, we will write an eBPF program based on BCC's uprobe to observe whether there are a large number of short connections on MySQL.
 
-#### a）分析MySQL源码相关连接处理的函数
+#### a）Analyze MySQL source code related connection processing functions
 ```C
 //从MySQL源码中分析函数选用了mysql-server层的连接校验处理函数check_connection
 static int check_connection(THD *thd){
   ...
 }
 ```
-#### b）导入BCC的BPF对象
+#### b）Import BPF objects from BCC
 ```python
 #!/usr/bin/python
-//这个对象可以将我们的观测代码嵌入到观测点中执行
+//Analyze the function from the MySQL source code and use the connection verification processing function of the mysql-server layer check_connection
 from bcc import BPF
 ```
-#### c）用c编写观测代码
+#### c）Write observation code in C
 ```Python
 
 bpf_text="""
 #include <uapi/linux/ptrace.h>
 #include <linux/sched.h>
 
-//定义结构体 data_t 保存我们每次观测到的结果
+//Define the structure data_t save the result of each observation
 struct data_t {
     u32 pid;
     u32 tgid;
@@ -57,12 +59,12 @@ struct data_t {
 //PF_PERF_OUTPUT 定义了一个叫 events 的表，观测代码可以将观测数据写入到 events 表中
 BPF_PERF_OUTPUT(events);
 
-//该自定义函数用来和MySQL观察的内核函数进行绑定关联
+//This custom function is used to bind and associate with the kernel function observed by MySQL
 int do_check_connection(struct pt_regs *ctx) {
-    //获取了 MySQL 进程对应的结构体 task_struct，然后从获取了其中的 线程pid 和 用户空间进程tgid
+    //Obtained the structure task_struct corresponding to the MySQL process, and then obtained the thread pid and user space process tgid from it
     struct task_struct *t = (struct task_struct *)bpf_get_current_task();
     
-    //初始化data用来保存观测结果
+    //Initialize data to save observation results
     struct data_t data = {};
     
     // create a new connection
@@ -78,34 +80,34 @@ int do_check_connection(struct pt_regs *ctx) {
     // bpf_ktime_get_ns returns u64 number of nanoseconds. Starts at system boot time but stops during suspend.
     data.ts = bpf_ktime_get_ns();
     
-    //将观测的数据提交到表中
+    //Submit the observed data to the table
     events.perf_submit(ctx, &data, sizeof(data));
 
     return 0;
 }"""
 ```
-#### d）观测代码关联MySQL 中需要观测的函数
+#### d） Observe the code to associate the functions that need to be observed in MySQL
 ```Python
 # initialize BPF
-//自定义的ebpf程序
+//custom ebpf program
 b = BPF(text=bpf_text)
-//将ebpf观察代码中的自定义函数和MySQL的内核函数进行绑定（name为mysqld进程路径，sym为编译后的探测函数名，fn_name为绑定的ebpf自定义函数）
+//Bind the custom function in the ebpf observation code to the kernel function of MySQL (name is the mysqld process path, sym is the name of the compiled probe function, fn_name the bound ebpf custom function)
 b.attach_uprobe(name="/home/mysqld", sym="_ZL16check_connectionP3THD",fn_name='do_check_connection')
 ```
-#### e） 打印观测结果
+#### e） Print observations
 ```Python
 
 # output trace result.
 print("Starting to Trace MySQL server do_check_connection function")
 print("------------------------------------------------------------")
 
-//定义打印的回调函数
+//Define the callback function for printing
 def print_event(cpu, data, size):
     event = b["events"].event(data)
     decoded_string = event.info.decode('utf-8')
     print("%-35s, process id %-6s, thread id %-6s, sytem uptime(s) %-14s" % (decoded_string,event.tgid, event.pid,event.ts/1000000000))
 
-//open_perf_buffer 将打印的回调函数注册到 events 表中
+//open_perf_buffer register the printed callback function in the events table
 b["events"].open_perf_buffer(print_event)
 while 1:
     try:
@@ -113,41 +115,42 @@ while 1:
     except KeyboardInterrupt:
         exit()
 ```
-#### f）效果演示
-执行该eBPF程序
+#### f） effect demonstration
+Execute the eBPF program
 
-![eBPF程序](../../images/EBPF01/EbpfProgram.png)
+![eBPF Program](../../images/EBPF01/EbpfProgram.png)
 
-分别开两个窗口执行连接MySQL的命令
+Open two windows to execute the command to connect to MySQL
 
-![MySQL命令](../../images/EBPF01/MysqlCommand.png)
+![MySQL Command](../../images/EBPF01/MysqlCommand.png)
 
-打印观测的结果
+Print the results of observations
 
-![观测的结果](../../images/EBPF01/ObservedResult.png)
+![Observation Result](../../images/EBPF01/ObservedResult.png)
 
-从上面的演示中我们能看到，客户端和MySQL建立连接的时候会打印日志，显示这个连接的校验时间、线程id、进程id。如果存在大量日志输出，说明数据库上一直在创建新连接（即短连接），再进行下一步分析是哪个应用程序导致的。
-## 03. eBPF在程序开发过程中有哪些限制？
+From the above demonstration, we can see that when the Client and MySQL establish a connection, a log will be printed, displaying the verification time, thread id, and process id of the connection. If there is a large amount of log output, it indicates that new connections (i.e. short connections) have been created on the database, and then the next step is to analyze which application caused it.
 
-eBPF在应用和开发过程中会出现多种问题，下面就跟大家分享一下eBPF在程序开发过程中可能会遇到的限制：
+## 03. What are the limitations of eBPF during program development?
 
-#### 1）栈大小512字节
+There are many problems with eBPF during application and development. Here are some limitations that eBPF may encounter during program development:
 
-eBPF单个探测函数对栈大小限制为512字节，使用BPF_PERF_OUTPUT将数据从内核态输出到用户态时，会直接限制单个数据结构的大小定义不能超过512字节。
+#### 1） Stack size 512 bytes
 
-#### 2）多参数获取
+The eBPF single probe function limits the stack size to 512 bytes, and using BPF_PERF_OUTPUT to output data from Kernel Mode to User Mode directly limits the size definition of a single data structure to no more than 512 bytes.
 
-BCC中的宏定义从PT_REGS_PARM1(x)~PT_REGS_PARM5(x)，栈传递的参数，是从右边向左压栈，想要获取探测函数的入参可以通过PT_REGS_PARM来获取，但X86寄存器的个数是有限的，BCC的定义是能取到5个参数，对于超过6个参数的不能直接获取。
+#### 2）Multi-parameter acquisition
 
-#### 3）循环遍历
+BCC macro definition from PT_REGS_PARM1 (x)~ PT_REGS_PARM5 (x), the stack pass parameters, from the right to the left of the stack, want to get the probe function imported parameters can be obtained by PT_REGS_PARM, but the number of X86 registers is limited, BCC definition is to get 5 parameters, for more than 6 parameters can not be directly obtained.
 
-Kernel 内核版本低于4.15，不支持任何循环。
+#### 3） loop traversal
 
-#### 4）复杂数据结构的解析
+Kernel kernel version lower than 4.15 does not support any loops.
 
-对于参数中复杂数据结构进行解析，由于eBPF程序无法直接引用用户态的头文件，且无法直接在eBPF代码中定义C++的类，对于复杂的数据结构获取其成员变量不能直接获取。
+#### 4）Analysis of complex data structures
 
-例：
+For parsing complex data structures in parameters, since the eBPF program cannot directly refer to the Header File of User Mode, and cannot directly define C++ classes in the eBPF code, it cannot directly obtain its member variables for complex data structures.
+
+Example:
 ```C
 
 class THD: public MDL_context_owner,
@@ -166,10 +169,10 @@ class THD: public MDL_context_owner,
     LEX_CSTRING m_catalog;
  }
  ```
- 该数据结构较为复杂，在使用eBPF获取该数据结构的m_catalog时，显然是不能在内核中定义相同的数据结构来进行转换。
- #### 5）uretprobe获取入参值
- 在uretprobe触发时，寄存器中只能确保rax有效保留返回值，无法直接获取函数入参的值。
+This data structure is more complex, and when using eBPF to obtain the m_catalog of this data structure, it is obviously impossible to define the same data structure in the kernel for conversion.
+ #### 5）uretprobe gets imported parameter values
+When the uretprobe is triggered, the register can only ensure that the return value of rax is effectively retained, and the value of the function imported parameter cannot be directly obtained.
 
-## 总结
+## Summary
 
-利用eBPF技术探测MySQL ,具有更高效，更扩展，更安全等优势，不用修改内核就可观测数据库性能。通过上面例子您是否发现采用eBPF跟踪数据库其实并不难，主要的门槛在于精通数据库内核和Linux编程，而且要对代码有精益求精的意识。您的hello world出现了吗？欢迎进群跟我们探讨！
+Using eBPF technology to detect MySQL has the advantages of more efficient, more scalable, and more secure. You can observe the performance of the database without modifying the kernel. Through the above example, do you find that it is not difficult to use eBPF to track the database? The main threshold is to be proficient in the database kernel and Linux programming, and to have a sense of excellence in the code. Has your hello world appeared? Welcome to the group to discuss with us!
