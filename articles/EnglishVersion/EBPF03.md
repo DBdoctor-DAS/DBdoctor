@@ -1,45 +1,45 @@
-# eBPF实战教程三｜数据库磁盘IO最精准的量化方法(含源码)
+# eBPF Practical Tutorial 3 | The most accurate quantization method for database disk IO (including source code)
 
-## 前言
+## Preface
 
-感谢各位小伙伴对我们eBPF专题系列文章的持续关注与支持！在上一篇eBPF技术文章[《eBPF实战教程二｜数据库网络流量最精准的量化方法(含源码)》](../articles/EBPF02.md)中，我们探讨了如何手写一个Kprobe函数来观测MySQL的网络流量。许多热心的小伙伴纷纷私信我们，希望我们可以分享更多eBPF在数据库领域的应用场景。
+Thank you for your continuous attention and support to our eBPF series of articles! In the previous eBPF technical article ["eBPF Practical Tutorial 2 | The Most Accurate Quantification Method for Database Network Traffic (including source code) " (../articles/EBPF02.md), we discussed how to handwrite a Kprobe function to observe MySQL network traffic. Many enthusiastic friends have privately messaged us, hoping that we can share more application scenarios of eBPF in the database field.
 
-为了满足大家的期待，我们特别推出该系列第四篇纯技术分享文章——如何手码一个Kprobe函数来分析MySQL数据库表维度的磁盘IO。我们希望通过这篇文章，为大家提供更深入的eBPF技术分析和实用的操作指南。同时，我们也将持续更新eBPF实战系列文章，敬请关注我们的公众号，获取更多精彩内容！
+In order to meet everyone's expectations, we have specially launched the fourth purely technical sharing article in this series - How to manually code a Kprobe function to analyze disk IO in the database & table dimensions of MySQL data. We hope to provide you with a more in-depth eBPF technical analysis and practical operation guide through this article. At the same time, we will continue to update the eBPF practical series of articles. Please follow our official account for more exciting content!
 
-## 文件系统读写函数的选取
+## Selection of file system read and write functions
 
-MySQL从5.6版本开始默认是独立表空间，Innodb每个表或者索引对应一个文件。那么我们可以基于Kprobe来探测表文件的读写。首先我们需要理解MySQL是如何进行读写，下图是数据库表文件IO的读写过程：
+MySQL defaults to independent tablespaces starting from version 5.6. Each table or index in Innodb corresponds to a file. Therefore, we can use Kprobe to detect the reading and writing of table files. First, we need to understand how MySQL reads and writes. The following figure shows the reading and writing process of database & table file IO:
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZku16QCBs4xZsDQnVSic4PPPtXrrIdZwJ1FZ9IeJgTbZG7D3v8YfTHdbnURklrdvACwvcic6H9eiarhQ/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-Linux中的VFS（Virtual File System，虚拟文件系统）负责管理系统中所有的文件和文件系统。VFS提供了一个统一的接口，使得不同类型的文件系统可以在Linux中无缝协作。
+VFS (Virtual File System) in Linux is responsible for managing all files and file systems in the system. VFS provides a unified interface so that different types of file systems can seamlessly cooperate in Linux.
 
-读写操作是一个常见的文件系统操作，它用于向文件中写入数据。当应用程序需要向文件中读写入数据时，它会向VFS发出写请求。VFS负责将这个请求传递给相应的文件系统内核模块，然后由文件系统模块负责实际的读写操作。
+Read and write operations are a common file system operation used to write data to a file. When an application needs to read and write data to a file, it sends a write request to VFS. VFS is responsible for passing this request to the corresponding file system kernel module, which is then responsible for the actual read and write operations.
 
-### 1）表维度的IO写入
-vfs_write()函数是负责处理写操作的主要函数之一。当应用程序调用write()系统调用时，实际上是调用了vfs_write()函数，该函数负责将数据写入文件中。在调用vfs_write()函数之前，应用程序需要先打开文件，并获取到文件的文件描述符。然后，通过文件描述符就可以向vfs_write()函数传递写操作的数据和参数。
+### 1） IO write of table dimension
+vfs_write () function is one of the main functions responsible for handling write operations. When an application calls the write () system call, it actually calls the vfs_write () function, which is responsible for writing data to a file. Before calling the vfs_write () function, the application needs to open the file and obtain the file descriptor of the file. Then, the data and parameters of the write operation can be passed to the vfs_write () function through the file descriptor.
 
-下面是Linux vfs_write()函数源码
+Here is Linux vfs_write () function source code
 
 ```C
 ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
   ssize_t ret;
-  //判断文件是否可写
+  //Check if the file is writable
   if (!(file->f_mode & FMODE_WRITE))
     return -EBADF;
   if (!(file->f_mode & FMODE_CAN_WRITE))
     return -EINVAL;
   if (unlikely(!access_ok(buf, count)))
     return -EFAULT;
-  //写校验
+  //Write check
   ret = rw_verify_area(WRITE, file, pos, count);
   if (ret)
     return ret;
   if (count > MAX_RW_COUNT)
     count =  MAX_RW_COUNT;
   file_start_write(file);
-  //调用文件写操作方法
+  //Call the file write operation method
   if (file->f_op->write)
     ret = file->f_op->write(file, buf, count, pos);
   else if (file->f_op->write_iter)
@@ -55,37 +55,38 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
   return ret;
 }
 ```
-函数的第一个形参file即为文件对象，第三个形参count是写入大小。
-- file对象中的f_inode成员变量是文件的元数据信息对象指针，该对象中的i_ino即为文件的inode号，该id可作为全局唯一的文件标识。
+The first parameter of the function, file, is the file object, and the third parameter, count, is the write size.
 
-- file->f_path.dentry即为该文件的dentry信息，从该指针中可分别获取文件名dentry->name（数据库的表名）以及父目录名de->d_parent->d_name.name（数据库的库名）
+- The f_inode member variable in the file object is the metadata object pointer of the file. The i_ino in this object is the inode number of the file, which can be used as a globally unique file identifier.
 
-通过vfs_write()函数，可以方便地进行写操作，而无需关心底层文件系统的具体实现细节。VFS的设计使得Linux系统更加灵活和高效，为用户提供了方便的文件系统管理功能。
+- file- > f_path is the dentry information of the file, from which the pointer can respectively obtain the file name dentry- > name (database table name) and the parent directory name de- > d_parent - > d_name.name (database database name).
 
-因此，我们可以选取vfs_write()函数作为探测点，来统计数据库库表维度的每秒数据写入量。
+With the vfs_write () function, writing operations can be easily performed without worrying about the specific implementation details of the underlying file system. The design of VFS makes the Linux system more flexible and efficient, providing users with convenient file system management functions.
 
-### 2）表维度的IO读
+Therefore, we can select the vfs_write () function as a probe point to Statistical Data database & table dimension of data write per second.
 
-vfs_read()函数是负责处理读操作的主要函数之一，函数的这些参数与返回值与 vfs_write() 函数如出一辙，就不再赘述了。
+### 2）IO read of table dimension
+
+vfs_read () function is one of the main functions responsible for handling read operations. These parameters and return values of function are exactly the same as those of vfs_write () function, so they will not be repeated here.
 
 ```C
 ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 {
   ssize_t ret;
-   //判断文件是否可读
+   //Determine if the file is readable
   if (!(file->f_mode & FMODE_READ))
     return -EBADF;
   if (!(file->f_mode & FMODE_CAN_READ))
     return -EINVAL;
   if (unlikely(!access_ok(buf, count)))
     return -EFAULT;
-  //读校验
+  //Read check
   ret = rw_verify_area(READ, file, pos, count);
   if (ret)
     return ret;
   if (count > MAX_RW_COUNT)
     count =  MAX_RW_COUNT;
-  //调用文件写操作方法
+  //Call the file write operation method
   if (file->f_op->read)
     ret = file->f_op->read(file, buf, count, pos);
   else if (file->f_op->read_iter)
@@ -100,32 +101,31 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
   return ret;
 }
 ```
-我们也可以选取vfs_read()函数作为探测点，来统计数据库库表维度的每秒数据读取量。
-## eBPF Kprobe如何探测MySQL表维度的磁盘IO读写量?
+We can also select the vfs_read () function as a probe point to Statistical Data database & table dimension data reads per second.
+## How to detect the disk IO read and write volume of MySQL table dimension with eBPF Kprobe?
 
-### 1）环境准备
+### 1）Environment preparation
 ```
-准备一台 Linux 机器，安装好g++和bcc
+Prepare a Linux machine and install g ++ and bcc
 ```
-### 2）基于BCC工具实现探测MySQL
-要实现库表维度的磁盘IO读写统计，我们首先定义一个存储结构用来存放进程库表维度读写的总Size，基于Kprobe分别对磁盘库表维度的读写量进行累加并存储到该结构中，然后每秒去读并打印当前存储结构中累加的磁盘库表读写量，即可实现每秒的库表磁盘读写的采集。
-
-接下来我们将基于BCC，利用Kprobe写一个eBPF程序，观测MySQL库表维度的磁盘IO的读写。
-#### a）分析内核文件系统源码相关VFS磁盘读写处理的函数
+### 2）Implement MySQL detection based on BCC tool
+To achieve disk IO read and write statistics in the database & table dimension, we first define a storage structure to store the total size of process database & table dimension reads and writes. Based on Kprobe, we accumulate and store the disk database & table dimension reads and writes in this structure. Then, we read and print the accumulated disk database & table reads and writes in the current storage structure every second to achieve the collection of database & table disk reads and writes per second.
+Next, we will use Kprobe to write an eBPF program based on BCC to observe the disk IO read and write of MySQL database & table dimensions.
+#### a）Analyze the kernel file system source code related VFS disk read and write processing function
 
 ```C
-//数据库写vfs
+//Database writing to VFS
 ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_t *pos){
   ...
 }
-//数据库读vfs
+//Database reads VFS
 ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos){
   ...
 }
 ```
-#### b）导入BCC的BPF对象
+#### b）Import BPF objects from BCC
 ```C
-//这个对象可以将我们的观测代码嵌入到观测点中执行
+//This object can embed our observation code into the observation point for execution
 #include <bcc/BPF.h>
 
 #include <string>
@@ -133,14 +133,14 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 #include <thread>
 #include <time.h>
 ```
-#### c）用c编写eBPF代码
+#### c）Write eBPF code in C
 ```C
 
 std::string strBPF = R"(
 #include <linux/ptrace.h>
 #include <bcc/proto.h>
 #include <linux/blkdev.h>
-//定义采集的指标存储结构key
+//Define the index storage structure key for collection.
 struct key_t{
     u32 pid;
     u64 inode;
@@ -154,7 +154,7 @@ struct val_t{
     char name[32];
     char path[64];
 };
-//定义采集的指标存储结构value
+//Define the index storage structure value for collection
 BPF_HASH(map,struct key_t,struct val_t,10240);
 BPF_HASH(flag,u32,u32,2);
 
@@ -209,9 +209,9 @@ int kprobe__vfs_write(struct pt_regs *ctx, struct file *file,char __user *buf, s
 }
 )";
 ```
-#### d）观测代码关联系统文件读写需要观测的函数
+#### d）Observe the functions that need to be observed when reading and writing system files associated with the observation code
 ```C
-//用于ebpf代码程序中的pid替换
+//Used for pid replacement in ebpf code programs
 static std::string str_replace(std::string r, const std::string& s, const std::string& n)
 {
         std::string y = std::move(r);
@@ -235,7 +235,7 @@ struct io_val{
     char path[64];
 };
 
-//指定进程pid进行kprobe diskio统计
+//Specify process pid for kprobe diskio statistics
 int main(int argc, char* argv[]) {
     int pid = std::stoull(argv[1]);
     ebpf::BPF bpf;
@@ -247,13 +247,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     std::cout << "-----------------start to sample MySQL DiskIO (table and index read_bytes/write_bytes)-------------- " << std::endl;
-    /*探测vfs_read*/
+    /*Detection vfs_read*/
     auto attachRes = bpf.attach_kprobe("vfs_read", "kprobe__vfs_read",0,BPF_PROBE_ENTRY);
     if(!attachRes.ok()) {
         std::cerr << "attach vfs_read error,msg: "<< attachRes.msg() << std::endl;
         return 1;
     }
-    /*探测vfs_write*/
+    /*Detection vfs_write*/
     attachRes = bpf.attach_kprobe("vfs_write", "kprobe__vfs_write");
     if(!attachRes.ok()) {
         std::cerr << "attach vfs_write error,msg: "<< attachRes.msg() << std::endl;
@@ -261,7 +261,7 @@ int main(int argc, char* argv[]) {
     }
     u32 on=1,off=0,key=1;
     auto flag = bpf.get_hash_table<uint32_t,uint32_t>("flag");
-    /*每秒完成一次读取并打印*/
+    /*Read and print once per second*/
     while (true){
       flag.update_value(key,on);
             std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -276,27 +276,28 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 ```
-#### e）效果演示
-编译并执行该eBPF程序
+#### e）Effect demonstration
+Compile and execute the eBPF program
 ```Bash
-#编译命令
+#compile command
 g++ -std=c++17 -o io io.cpp -lbcc -pthread
 ```
-指定mysqld进程pid 2004756进行diskio采集：
+Specify the mysqld process pid 2004756 for diskio collection.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZku16QCBs4xZsDQnVSic4PPPlBCbkRAf4eBcCSezIltdibVXAKrKbGzRj6J901yjGKRnZG3yvaQicjcw/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-远程执行连接MySQL的命令并执行SQL
+Execute commands to connect to MySQL remotely and execute SQL.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZku16QCBs4xZsDQnVSic4PPPxibJxHBib6WibXzKP3ia0PM4FR0kuAC5pibWYWLWKG3HmW1eqvTicCEPnuibQ/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-打印观测的结果
+Print the results of the observation
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZku16QCBs4xZsDQnVSic4PPPKiaiaHJiaibyN93YQy5LBEBtScicNIHT4Wfflvf6pyibJoAbicwmUicnb0dbOQ/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-从上面的演示中我们能看到，客户端和MySQL建立连接，分别执行涵盖sbtest16和sbtest15两个表SQL，每秒会打印日志，显示mysqld的进程pid、累加磁盘读写的次数和Bytes、涉及的库表。然后我们针对采集上来的数据就可以做分析了：
-- 如果存在rbytes过大，说明数据库上可能存在涉及该库表的单条查询SQL扫描行过大或者很多大字段等问题，会导致大量占用磁盘IO，甚至会导致整体数据库变慢。
-- 如果存在wbytes过大，说明数据库上可能存在涉及该库表的大量写入SQL，比如做批量数据删除，可能导致整体数据库变慢，可建议更新缩小范围，分多批次删除，减少对磁盘IO的占用。
+From the above demonstration, we can see that the Client and MySQL establish a connection, execute two table SQL statements covering sbtest16 and sbtest15 respectively, print logs every second, display the process pid of mysqld, the accumulated disk read and write times and Bytes, and the involved database & table. Then we can analyze the collected data.
 
-## 总结
+- If there are too many rbytes, it indicates that there may be problems such as large single query SQL scan rows or many large fields involving the database & table on the database, which will cause a large amount of disk IO occupation and even slow down the overall database.
+- If wbytes are too large, it indicates that there may be a large amount of SQL writing involving the database & table in the database, such as batch data deletion, which may cause the overall database to slow down. It is recommended to update and narrow the scope, delete in multiple batches, and reduce the occupation of disk IO.
 
-利用eBPF技术可以在内核级别捕获和分析与数据库表操作相关的磁盘IO活动。这需要我们深入理解eBPF的工作原理、Kprobe的使用、MySQL存储引擎以及文件系统交互机制等。通过文中我们的介绍，您是否对eBPF技术又有了新的认知呢？
+## Summary
+
+Using eBPF technology, disk IO activities related to database & table operations can be captured and analyzed at the kernel level. This requires a deep understanding of the working principle of eBPF, the use of Kprobe, MySQL storage engine, and file system interaction mechanism. Through our introduction in the article, do you have a new understanding of eBPF technology?
