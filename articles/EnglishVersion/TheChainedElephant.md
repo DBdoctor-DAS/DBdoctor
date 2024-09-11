@@ -1,34 +1,34 @@
-# 被锁住的大象(Postgres)，如何跟MySQL赛跑
-PG大象和MySQL海豚到底谁跑的更快，一直都是业界热点，但是一旦被锁住，谁都跑不了，以下场景你是否似曾相识？
-- 应用服务没有发布任何代码变更，但平时很快的接口突然响应变慢又抖动？
-- 比较顺滑的功能页面突然打不开了，浏览器一直在转圈圈？
+# The locked elephant (Postgres), how to race against MySQL
+PG Elephant and MySQL Dolphin, who runs faster, has always been a hot topic in the industry. However, once locked, neither can escape. Do you feel familiar with the following scenario?
+- The application service has not released any code changes, but the normally fast interface suddenly becomes slow and jittery?
+- The relatively smooth functional page suddenly cannot be opened, and the browser keeps spinning?
 
-这些问题的出现大多是由于锁引发的性能问题，就如同悬在头顶的利剑，随时可能引发灾难！
+The emergence of these problems is mostly due to performance issues caused by locks, just like a sword hanging over your head, which can cause disasters at any time!
 
-## 一. PostgreSQL锁问题
-#### 1.常见的锁相关问题
-- 锁等待：大量时间用于等待锁资源，严重影响数据库性能。
-- 死锁：造成业务异常或损失。
-- 未提交事务与长事务：会长时间持有锁资源，增加锁问题发生的概率。
+## 一. PostgreSQL lock issue
+#### 1.Common lock-related issues
+- Lock waiting: A lot of time is spent waiting for lock resources, which seriously affects database performance.
+- Deadlock: Causing business abnormalities or losses.
+- Uncommitted transactions and long transactions: Holding lock resources for a long time increases the probability of lock problems occurring.
 
-#### 2.锁问题分析的难点
-- **锁机制的复杂性**：PostgreSQL的锁机制是相当复杂的，涉及多种类型的锁，如行级锁、表级锁、页级锁等，不同的锁级别又会影响并发性和性能。这使得理解和管理锁变得复杂，尤其是在大型或高并发的数据库系统中。
+#### 2.Difficulties in analyzing lock problems
+- **Complexity of lock mechanism**：PostgreSQL's lock mechanism is quite complex, involving multiple types of locks, such as row-level locks, table-level locks, page-level locks, etc. Different lock levels will affect concurrency and performance. This makes understanding and managing locks complex, especially in large or highly concurrent Database Systems.
 
-- **并发事务复杂性**：锁问题通常发生在多个并发事务之间，这增加了定位问题的复杂性。理解并发事务之间的相互依赖关系和锁竞争情况对于分析锁相关问题至关重要。
+- **Concurrent Transaction Complexity**：Locking issues often occur between multiple concurrent transactions, which increases the complexity of locating the problem. Understanding the interdependencies and lock contention between concurrent transactions is crucial to analyzing lock-related issues.
 
-- **死锁链的复杂性**：可能存在多个死锁链，进一步增加梳理与分析的难度。
+- **Complexity of dead chains**：There may be multiple dead chains, further increasing the difficulty of sorting and analysis.
 
-- **难以重现和调试**：有些锁问题可能是偶发性的或难以重现的，这使得调试和解决问题变得更加困难。特别是在生产环境中，由于无法简单地重现问题，需要更加谨慎地分析和调试。
+- **Difficult to reproduce and debug**：Some lock issues may be sporadic or difficult to reproduce, which makes debugging and problem solving more difficult. Especially in production environments, because the problem cannot be simply reproduced, it needs to be analyzed and debugged more carefully.
 
-- **日志分析的挑战**：虽然PostgreSQL会记录死锁事件，但死锁日志难以阅读和梳理。需要详细分析日志以了解死锁发生时的上下文信息、涉及的事务和锁等待情况。
+- **Challenges of log analysis**：Although PostgreSQL logs deadlock events, deadlock logs are difficult to read and comb through. Logs need to be analyzed in detail to understand the context information when deadlocks occur, the transactions involved, and lock waiting conditions.
 
-- **监控和诊断工具的局限**：尽管PostgreSQL提供了一些系统视图和功能来监控锁活动，但在复杂的生产环境中，很难快速的组合利用好这些工具分析出结果。
-## 二.锁分析案例
-此处以死锁问题为例：
+- **Limitations of monitoring and diagnostic tools**：Although PostgreSQL provides some system views and capabilities to monitor lock activity, it is difficult to quickly combine these tools to analyze results in complex production environments.
+## 二.Lock analysis case
+Taking the deadlock problem as an example here:
 
-1. 锁问题识别，在该阶段多通过业务服务异常日志或者通过PostgreSQL数据库监控发现存在死锁事件。
+1. Lock problem identification. At this stage, deadlock events are found through business service exception logs or PostgreSQL database monitoring.
 
-2. 查看PostgreSQL日志可以查看到进一步的死锁信息，如下图所示，死锁日志展示造成死锁的两个事务，以及等锁的两条SQL，到此环节无更多信息推断出这两个事务是如何形成的死锁环。
+2. By checking the PostgreSQL log, you can see further deadlock information, as shown in the following figure. The deadlock log shows the two transactions that caused the deadlock, as well as the two SQL statements that are waiting for the lock. At this stage, there is no more information to infer how these two transactions formed the deadlock ring.
 ```Bash
 2024-05-26 21:59:20.868 EDT [14761] ERROR:  deadlock detected
 2024-05-26 21:59:20.868 EDT [14761] DETAIL:  Process 14761 waits for ShareLock on transaction 36986; blocked by process 14762.
@@ -40,13 +40,13 @@ PG大象和MySQL海豚到底谁跑的更快，一直都是业界热点，但是�
 2024-05-26 21:59:20.868 EDT [14761] STATEMENT:  update people set age=33 where id=1;
 2024-05-26 21:59:20.968 EDT [14766] WARNING:  there is already a transaction in progress
 ```
-3. 如果要继续深入分析，有以下几种思路：
+3.  If we want to continue the in-depth analysis, there are several approaches:
 
-    **思路一**：如果造成死锁的sql特征比较明显，可以从业务代码中找出包含该sql的业务逻辑，梳理出完整事务。然后再通过手动方式尝试复现问题。
+    **Approach 1**：If the SQL characteristics that cause deadlock are obvious, you can find the business logic that contains the SQL in the business code and sort out the complete transaction. Then try to reproduce the problem manually.
 
-    **思路二**：分析审计日志，也是DBA用的比较多的一种方式。前提需要开启审计日志（log_statement = 'all'），很多业务考虑性能与存储不会长期开启审计日志，需要开启审计日志后蹲守死锁事件。
+    **Approach 2**：Analyzing audit logs is also a common way used by DBAs. The premise is to enable audit logs (log_statement = 'all'). Many businesses consider performance and storage and will not enable audit logs for a long time. It is necessary to enable audit logs and wait for deadlock events.
 
-    1. 首先在审计日志里面找到死锁事件，以及死锁事务所在的进程ID。
+    1. First, find the deadlock event and the process ID of the deadlock transaction in the audit log.
 
         ```Bash
         2024-05-27 03:04:28.296 EDT,"postgres","postgres",28417,"10.18.215.89:41572",6654306d.6f01,5,"UPDATE",2024-05-27 03:04:13 EDT,8/93,37429,ERROR,40P01,"deadlock detected","Process 28417 waits for ShareLock on tra
@@ -56,7 +56,7 @@ PG大象和MySQL海豚到底谁跑的更快，一直都是业界热点，但是�
         Process 28419: update people set age=33 where id=1;","See server log for query details.",,,"while updating tuple (1090,20) in relation ""people""","update people set age=23 where id=2;",,,"pgbench"
         ```
         
-    2. 然后再在审计日志里梳理进程这几个PID在死锁时间点前后都执行了哪些SQL。
+    2. Then sort out in the audit log which SQL was executed by these process PIDs before and after the deadlock time point.
         ```Bash
         bash-4.2$ cat postgresql-2024-05-27_025951.csv |grep 28417
         2024-05-27 03:04:13.265 EDT,"postgres","postgres",28417,"10.18.215.89:41572",6654306d.6f01,1,"idle",2024-05-27 03:04:13 EDT,8/93,0,LOG,00000,"statement: begin;",,,,,,,,,"pgbench"
@@ -67,7 +67,7 @@ PG大象和MySQL海豚到底谁跑的更快，一直都是业界热点，但是�
         Process 28419 waits for ShareLock on transaction 37429; blocked by process 28417.
         Process 28417: update people set age=23 where id=2;
         ```
-        <center>死锁前后Pid1执行过的SQL</center>
+        <center>SQL executed by Pid1 before and after deadlock</center>
 
         ```Bash
         bash-4.2$ cat postgresql-2024-05-27_025951.csv |grep 28419
@@ -81,57 +81,57 @@ PG大象和MySQL海豚到底谁跑的更快，一直都是业界热点，但是�
         2024-05-27 03:04:28.300 EDT,"postgres","postgres",28419,"10.18.215.89:41576",6654306d.6f03,5,"idle in transaction",2024-05-27 03:04:13 EDT,9/173,37430,LOG,00000,"statement: commit;",,,,,,,,,"pgbench"
         2024-05-27 03:04:28.319 EDT,"postgres","postgres",28419,"10.18.215.89:41576",6654306d.6f03,6,"idle",2024-05-27 03:04:13 EDT,9/174,0,LOG,00000,"statement: begin;",,,,,,,,,"pgbench"
         ```
-        <center>死锁前后Pid2执行过的SQL</center>
+        <center>SQL executed by Pid2 before and after deadlock</center>
 
 
-    3. 如果是超过两个事务造成的死锁环，则需要梳理更多的事务SQL，最终可以梳理出死锁环。
-    4. 最终分析出事务里哪些SQL、哪些锁资源间有冲突。
+    3. If the deadlock ring is caused by more than two transactions, more transaction SQL needs to be sorted out, and finally the deadlock ring can be sorted out.
+    4. Finally, analyze which SQL and lock resources in the transaction conflict.
 
-从上面手动处理的流程来看，当这个问题发生时，处理起来非常麻烦，中间会有很多的干扰信息和审计日志性能问题，那有没有更好的方案呢？
+From the manual processing process above, it can be seen that when this problem occurs, it is very troublesome to handle, and there will be a lot of interference information and audit log performance issues in the middle. Is there a better solution?
 
-**近期DBdoctor3.2.0版本新上线了PostgreSQL锁透视功能，使用PostgreSQL数据库的朋友再也不用担心因数据库锁而导致的业务系统卡顿和死锁问题了，DBdoctor可助力您快速找到卡顿源头！**
+**Recently, DBdoctor 3.2.0 version has launched the PostgreSQL lock pivot function. Friends who use PostgreSQL databases no longer need to worry about business system lag and deadlock problems caused by database locks. DBdoctor can help you quickly find the source of the lag!**
 
-下面我们来看看DBdoctor针对PostgreSQL是如何进行锁透视的。
+Now let's take a look at how DBdoctor performs lock pivot for PostgreSQL.
 
-## 三. DBdoctor还原PG死锁问题形成过程
-针对锁问题分析的难点，DBdoctor利用eBPF技术采集PostgreSQL事务SQL的执行过程数据，其中包括细粒度的锁数据，并通过泳道图可视化呈现锁在多事务并发执行中的详细形成过程。
+## 三. DBdoctor restores the formation process of PG deadlock problem
+DBdoctor uses eBPF technology to collect the execution process data of PostgreSQL transaction SQL, including the lock data of fine grain, and visualizes the detailed formation process of locks in multi-transaction concurrent execution through swimlane diagrams.
 
-PostgreSQL的锁透视包括锁等待、死锁、未提交事务、长事务四大场景，下面我们来看看上面的死锁Case，DBdoctor是如何精准找到并还原现场的 。
-1. 首先我们打开锁透视功能，能看到锁异常事件汇总中是存在死锁问题。
+PostgreSQL's lock pivot includes four scenarios: lock waiting, deadlock, uncommitted transactions, and long transactions. Let's take a look at the deadlock case above and how DBdoctor accurately finds and restores the scene.
+1. First, we open the lock perspective function, and we can see that there is a deadlock problem in the lock exception event summary.
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZknEq30vu5BeLK0y3BoxticK9nXEOckzLwwhn4kZWiaydNT2O4Xlmlib2KNyiaPUzSV1jZQPic7diaVlSjw/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-2. 点击死锁，查看死锁可视化分析
-在死锁可视化分析中，如下图，会将>=2个事务所形成的死锁环绘制出来，会标注各事务持有和等待的具体锁资源，如某个page或tuple，同时会用红色标注出被回滚的事务。
+2. Click Deadlock to view the deadlock visualization analysis.
+In the deadlock visualization analysis, as shown in the figure below, the deadlock loop formed by > = 2 transactions will be drawn, and the specific lock resources held and waited for by each transaction will be marked, such as a certain page or tuple. At the same time, the rolled-back transactions will be marked in red.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZknEq30vu5BeLK0y3BoxticKDSdm3jIj9eqaTMX1Tx0GfGqJvRWAvADYqcqNetnyH5fJ7goftiawKmg/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZknEq30vu5BeLK0y3BoxticKDSdm3jIj9eqaTMX1Tx0GfGqJvRWAvADYqcqNetnyH5fJ7goftiawKmg/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-死锁可视化分析分为两个部分：
+Deadlock visualization analysis is divided into two parts.
 
-- 最上面部分显示的是死锁的形成有多少个事务参与，是由于锁了哪些行记录导致的互相等待形成的死锁环。
+- The top part shows how many transactions are involved in the formation of the deadlock, and which rows of records are locked, resulting in a deadlock loop formed by mutual waiting.
 
-- 下面部分展示的是参与死锁的事务，按照时间轴各个事务分别执行了哪些SQL，在执行到哪个SQL产生了锁等待，最终哪个事务被回滚了，完整回放死锁的形成过程。
+- The following section shows the transactions involved in the deadlock. According to the timeline, which SQL statements were executed for each transaction, which SQL statement generated a lock wait, and which transaction was ultimately rolled back. The complete process of deadlock formation is replayed.
 
-这个Case中，我们能直接看到事务A和事务B在并发执行产生了死锁，最上面的死锁环形图可以直接展示了AB事务是如何形成环的。
+In this case, we can directly see that transaction A and transaction B caused a deadlock during concurrent execution. The deadlock ring diagram at the top can directly demonstrate how transaction AB forms a loop.
 
-## 四. 其他锁场景DBdoctor如何快速定位
-- 锁等待可视化分析
+## 四. How to quickly locate DBdoctor in other lock scenarios
+- Lock wait visualization analysis
 
-锁等待泳道图中，会展示两个事务的等待关系和详细事务SQL执行过程，其中在等锁事务泳道图中会标注出等锁事件，卡顿问题轻松追溯。
+In the lock waiting lane diagram, the waiting relationship and detailed transaction SQL execution process of two transactions will be displayed. Among them, the waiting lock event will be marked in the waiting lock transaction lane diagram, making it easy to trace the stuck problem.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZknEq30vu5BeLK0y3BoxticKXVYhK3rib7LVPcJ0Xy3gU8iaEZMbJDYtFDyGtx6IDK0paKOvJlO4Z1fg/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-- 未提交事务可视化
+- Uncommitted transaction visualization
 
-未提交事务的出现往往是由于业务代码逻辑问题在一些极端场景等事务未正常进行关闭(Sleep状态大于10秒的定义为未提交事务)。未正常关闭事务会导致锁占用不释放，可能会导致业务正常事务获取不到锁超时等问题。从下面的图中我们能看到UPDATE执行结束后并没有立即执行commit，而是长时间处于无操作状态，往往由于事务范围设计不合理导致的。
+The occurrence of uncommitted transactions is often due to business code logic issues. In some extreme scenarios, transactions are not closed normally (defined as uncommitted transactions with a sleep state greater than 10 seconds). Failure to close transactions normally can cause lock occupation and failure to release, which may lead to problems such as normal business transactions not being able to obtain lock timeouts. From the figure below, we can see that after the UPDATE execution is completed, the commit is not immediately executed, but rather remains in a non-operational state for a long time, often due to unreasonable transaction scope design.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZknEq30vu5BeLK0y3BoxticKrvicO3ECeHSvY0qDnWvCvsJ4IqC4sLDVqhjvBkqc2ZHImArlzBEvia0g/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-- 长事务可视化
+- Long transaction visualization
 
-长事务的出现往往是由于事务中存在慢SQL导致，该SQL一直处于执行中但执行时间比较长（执行耗时超过10s定义为长事务）。长事务是在SQL执行过程中耗时过长，代表SQL执行效率低，往往需要对慢SQL进行优化。
+The appearance of long transactions is often due to the existence of slow SQL in the transaction, which is always executing but takes a long time (defined as a long transaction if the execution time exceeds 10s). Long transactions take too long during the SQL execution process, indicating low SQL execution efficiency, and often need to optimize slow SQL.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZknEq30vu5BeLK0y3BoxticKLAsKUo2GRpAiaLDqDGEWTBhCa2Lo6vxIyOJHoTuUB1e7icUN2G7yhb8A/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-DBdoctor的锁透视功能非常强大，能够快速诊断和定位数据库中的锁问题。
+DBdoctor's lock pivot function is very powerful, which can quickly diagnose and locate lock problems in the database.
