@@ -1,164 +1,164 @@
-# 用蜜蜂(eBPF)来追踪海豚(MySQL)，性能追的上吗
+# Can the performance of tracking dolphins (MySQL) with bees (eBPF) catch up?
 
-DBdoctor 基于 eBPF 实现了数据库可观测，能够在**不改代码、不改启动参数、不重启进程的前提下对数据库内核进行追踪**，拿到更细粒度的内核数据进行数据分析，做到了性能观测的数学模型化。在数据库领域这是一种全新的技术手段，但偶尔也有小伙伴会咨询一些不解：
+DBdoctor realizes database observability based on eBPF, which can track the database kernel without changing the code, starting parameters, or restarting the process , obtain finer grain kernel data for Data Analysis, and achieve mathematical modeling of performance observation. This is a new technical means in the field of databases, but occasionally some friends will consult some puzzles:
 
-**eBPF观测MySQL做出来是不是一个玩具？能否用于生产？**
+**Does eBPF observe MySQL to make a toy? Can it be used in production?**
 
-**每一条SQL执行过程都探测，对数据库的性能消耗到底有多大？**
+**Every SQL execution process is probed, how much does it consume in terms of database performance?**
 
-**让一只蜜蜂(eBPF)去追海豚（MySQL），能追得上吗？**
+**Can a bee (eBPF) catch up with a dolphin (MySQL)?**
 
-本文将用数据说话，带大家一起用压测对比的方法揭开以上谜团！
+This article will speak with data and use torture testing to uncover the above mysteries together!
 
-**因测试比较严谨，全文比较长，忙碌的小伙伴可直接查看最下方的总结。**
+**Due to the rigorous testing, the full text is relatively long. Busy friends can directly view the summary at the bottom.**
 
-## Agent采集处理流程中，哪些环节会存在开销？
+## Which steps in the Agent collection and processing process will incur overhead?
 
-对于Agent来说占用资源是一定的，那如何才能做到最小化资源占用？下面将详细展开DBdoctor是怎样进行资源消耗控制的。
+For Agents, resource usage is fixed. How can we minimize resource usage? The following will detail how DBdoctor controls resource consumption.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZlN8BsI6woicUKwusEJonQv06kX43rc0XRDWFGN5sIsVWZicEe5yBT77PAE5uD22njiamLeUia8Ayr5WA/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-Agent利用eBPF实现对MySQL的内核探测，从原理机制上看eBPF的消耗主要在CPU上，CPU的消耗包含以下两个方面：
+Agent uses eBPF to implement kernel detection of MySQL. From the principle and mechanism, the consumption of eBPF is mainly on CPU, which includes the following two aspects:
 
-### 1）内核态探测开销
-当我们对MySQL内核的某个函数增加探测，相当于在函数的进入和返回都会执行我们自定义的eBPF程序，执行完后再进行MySQL的下一步执行。那这里增加的开销就是函数被调用的时候执行**eBPF程序代码**的开销（实际占用的是MySQL进程的CPU资源）。
+### 1）Kernel Mode Probing Overhead
+When we add probing to a function in the MySQL kernel, it is equivalent to executing our custom eBPF program when the function enters and returns, and then executing the next step of MySQL. The added overhead here is the overhead of executing the eBPF program code when the function is called (which actually occupies the CPU resources of the MySQL process).
 
-从上图我们能看到，控制**单次调用消耗**和**调用频率**尤为重要。在实际生产中这两个指标的性能开销该如何控制呢？
+From the above figure, we can see that controlling single call consumption and call frequency is particularly important. How to control the performance overhead of these two indicators in actual production?
 
-理解Agent处理流程以后，我们希望设计一组测试，尤其是针对性能要求很高的OLTP数据库。与业界其他可观测厂商测试方法不同，比如基于eBPF探测APP应用，一般都是注入多少负载压力的情况下进行测试评估性能损耗，我们要求是在极端负载压力情况下（数据库性能诊断的初衷就是要在数据库极端情况下进行关键数据采集，才能分析出性能问题根因），希望该测试用例能评估以下几点：
+After understanding the Agent processing flow, we hope to design a set of tests, especially for OLTP databases with high performance requirements. Unlike other observable vendors' testing methods in the industry, such as eBPF detection APP applications, which generally evaluate performance loss under a certain amount of load pressure injection, we require that under extreme load pressure conditions (the original intention of database performance diagnosis is to perform critical Data Acquisition under extreme database conditions in order to analyze the root cause of performance problems), we hope that this test case can evaluate the following points:
 
-- Agent 的运行对业务性能有什么样的影响？
+- What impact does the operation of Agent have on business performance?
 
-    - 业务的 QPS/TPS 降低了多少？
+    - How much has the QPS/TPS of the business decreased?
 
-    - 业务的 RT（Response Time）升高了多少？
+    - How much has the RT (Response Time) of the business increased?
 
-    - 业务的 CPU/MEM 消耗升高了多少？
+    - How much has the CPU/MEM consumption of the business increased?
 
-- Agent 自身的处理性能如何？
+- How is the processing performance of the Agent itself?
 
-    - 特定压力下 Agent 的 CPU/MEM 消耗如何？
-### 2）用户态数据处理开销
+    - How is the CPU/MEM consumption of the Agent under specific pressure?
+### 2）User Mode Data Processing Overhead
 
-探针采集到详细MySQL内核指标数据后，agent需要对数据进行组装处理，最后再通过网络投递出去进行存储。
+After the probe collects detailed MySQL kernel metric data, the agent needs to assemble and process the data, and finally deliver it over the network for storage.
 
-从图上我们能看到，16c16g规格的主机，我们给agent容器资源限制在1c1g，这样可以保证Agent不会抢占主机资源（稳定性兜底），这块资源占用很小，可以忽略不计。
+From the figure, we can see that for a 16c16g host, we limit the agent container resources to 1c1g to ensure that the agent does not preempt host resources (stability fallback). This resource usage is very small and can be ignored.
 
-## 如何进行测试，才能评估出eBPF开销？
-首先，为了评估 Agent对业务性能的影响，我们希望设计典型的业务场景来进行评估，并希望能覆盖到 Agent 处理流程中的所有重要环节。我们一共设计了两个场景，如下图所示：
+## How to conduct testing to evaluate eBPF overhead?
+Firstly, in order to evaluate the impact of Agent on business performance, we hope to design typical business scenarios for evaluation, and hope to cover all important links in the Agent processing flow. We have designed two scenarios in total, as shown in the following figure.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZlN8BsI6woicUKwusEJonQv0TPqHDP1kwDwjISR9LmvEsI5FVX6KG8T6ECDibkS5890Sj0BO2wzTE5Q/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-### 1）通过典型业务场景评估 Agent 对业务性能的影响
-- 场景 A - 基准压测只读、只写、读写混合场景
+### 1）Evaluate the impact of Agent on business performance through typical business scenarios
+- Scene A - Benchmark torture testing read-only, write-only, read-write hybrid scenario
 
-    使用 sysbench 作为压力工具，分别在读写、只读、只写模式下不同并发时的性能（TPS、QPS）。
+    Using sysbench as a stress tool, the performance (TPS, QPS) under different concurrency modes of read-write, read-only, and write-only.
 
-    - 分别对4c8g(bp:4G)/8c16g(bp: 8G) 的MySQL 使用1c1g/2c1g的Agent进行压测，没有部署Agent压测的消耗数据作为对照。
+    - Use 1c1g/2c1g Agents for torture testing on MySQL with 4c8g (bp: 4G)/8c16g (bp: 8G) respectively, without deploying Agent torture testing consumption data as a control.
 
-    - 分别在并发用户数为1/2/4/8/16/32/64 的情况下进行测试。
+    - Tested with 1/2/4/8/16/32/64 concurrent users.
 
-    - 每个测试运行30分钟，收集TPS和QPS性能数据、Agent 的实际物理资源消耗数据、对MySQL CPU资源的消耗数据。
-- 场景 B - 典型订单交易 OLTP 场景
+    - Each test runs for 30 minutes, collecting TPS and QPS performance data, actual physical resource consumption data of the agent, and consumption data of MySQL CPU resources.
+- Scenario B - Typical Order Trading OLTP Scenario
 
-    交易场景在数据库中是比较典型的OLTP类型，而且经常会有性能相关问题，特别是大促等场景下尤为突出。TPC-C 模型下的压测，评估Agent对业务处理能力的影响程度。
+    The transaction scenario is a typical OLTP type in the database, and there are often performance-related issues, especially in scenarios such as big promotions. Torture testing under the TPC-C model evaluates the impact of agents on business processing capabilities.
 
-- 场景 C - 数据库单个 SQL 请求消耗场景
+- Scenario C - Database single SQL request consumption scenario
 
-    MySQL的SQL执行过程探测，都会执行对应的探测点 eBPF 程序，该程序的开销即业务性能的影响开销。该测试通过给程序增加打印（仅内部验证评估使用）。所有上述三大场景，我们均会分别测试停用 Agent（基线）、运行Agent 两种情况，通过对比得出 Agent 对业务性能的影响。另外，我们也会注入不同 TPS 的压力，直至达到业务极限处理能力，以评估不同压力下的影响是否存在差异。另一方面，对于Agent进程自身处理性能的评估，我们会记录场景 A、B、C 中Agent 进程的 CPU/MEM开销。除此之外，我们也希望设计一些更极端的场景，用来评估Agent在资源受限情况下的资源消耗和极限处理能力。Agent的处理主要是读取数据并网络投递的开销，没有做其他逻辑的处理，所有开销主要在CPU上，那么CPU的开销和QPS有关，我们需要验证QPS对 Agent 资源消耗的影响。
-### 2）评估 Agent 自身的处理性能
-- 场景 A - 只采集主机性能数据
+    MySQL's SQL execution process detection will execute the corresponding detection point eBPF program, and the cost of this program is the impact cost of business performance. This test adds printing to the program (only used for internal verification and evaluation). In all the above three scenarios, we will test the two situations of disabling Agent (base line) and running Agent respectively, and compare them to determine the impact of Agent on business performance. In addition, we will inject different TPS pressures until the business limit processing capacity is reached to evaluate whether there are differences in the impact under different pressures. On the other hand, for the evaluation of the processing performance of the Agent process itself, we will record the CPU/MEM overhead of the Agent process in scenarios A, B, and C. In addition, we also hope to design some more extreme scenarios to evaluate the resource consumption and maximum processing capacity of the Agent under resource constraints. The processing of the Agent is mainly the overhead of reading data and network delivery, without any other logical processing. All the overhead is mainly on the CPU, so the CPU overhead is related to QPS. We need to verify the impact of QPS on the Agent's resource consumption.
+### 2）Evaluate the processing performance of the Agent itself
+- Scene A - Collect only host performance data
 
-    我们只采集主机和实例资源相关的性能数据，不开启性能洞察和锁分析，同时纳管一个机器上多个数据库实例，并评估 Agent 需要占用多少 CPU/MEM 资源。
+    We only collect performance data related to host and instance resources, without enabling performance insights and lock analysis. At the same time, we manage multiple database instances on one machine and evaluate how much CPU/MEM resources the Agent needs to occupy.
 
-- 场景 B - 开启全功能采集并压测实例
+- Scenario B - Enable full-featured collection and torture testing example
 
-    基于压测工具不断增加 QPS 的量，评估 Agent 的 CPU/MEM 资源占用与QPS的关系，我们将会对所有上述 2 个场景的测试方法和结果进行详细的阐述。测试过程中 DBdoctor Agent全部使用默认配置，没有进行任何调优。帮助用户评估业务量需要多少 Agent资源配置。
+    Based on the torture testing tool, we continuously increase the amount of QPS and evaluate the relationship between the CPU/MEM resource usage of the Agent and QPS. We will provide a detailed explanation of the testing methods and results for all the above two scenarios. During the testing process, DBdoctor Agent used the default configuration without any optimization. This helps users evaluate how much Agent resource configuration is needed for business volume.
 
-## 给数据库施压，Agent对业务的影响到底有多大？
-通过分析Agent的处理流程，我们设计了3大场景进行全方位评测。
+## How much impact does Agent have on business by putting pressure on the database?
+By analyzing the processing flow of the Agent, we designed three major scenarios for comprehensive evaluation.
 
-测试环境信息：
+Testing environment information:
 ```
-数据库服务器：ECS 独享cpu
+Database server: ECS exclusive CPU
 CPU：Intel(R) Xeon(R) Platinum 8269CY CPU @ 2.50GHz
-ECS规格：16c16g
-机器内存：32GB DDR4
-mysql版本：5.7.37
-操作系统：CentOS Linux 8
-内核版本：4.18.0-348.7.1.el8_5.x86_64
+ECS specification: 16c16g
+Machine Memory: 32GB DDR4
+MySQL version: 5.7.37
+Operating System: CentOS Linux 8
+Kernel Version: 4.18.0-348.7.1.el8_5.x86_64
 ```
-### 1）场景 A - 基准压测只读、只写、读写混合场景测试结果
+### 1）Scene A - Benchmark torture testing read-only, write-only, read-write mixed scenario test results
 
-以下测试均是本地连接数据库进行，在不同并发连接对 1000 张单表 1W 数据表进行压力测试，测试时间 30 分钟，压测数据为 5 次数据均值。下面以 MySQL 4C8G 的规格进行压测，Agent 资源限制在 1C1G/2C1G，对比开启 Agent 前后的读写、只读、只写三种模式下的性能表现。
+The following tests are all conducted by connecting to the local database. Stress testing is performed on 1000 single tables and 1W data tables with different concurrent connections. The testing time is 30 minutes, and the torture testing data is the average of 5 times. The torture testing is performed using the MySQL 4C8G specification, with Agent resources limited to 1C1G/2C1G. The performance is compared in three modes: read-write, read-only, and write-only, before and after enabling Agent.
+
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZlN8BsI6woicUKwusEJonQv0PNMmjxkAKaL9QQJSORDr9PkUPJOibBWy4qw2XkR7jIlRqIN6FdnsnXQ/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-下面我们通过对比折线图来展示，有无Agent或者增加Agent CPU情况下业务QPS的表现：
-#### a）读写模式
+Below we will show the performance of business QPS with or without Agent or with the addition of Agent CPU by comparing the line chart.
+#### a）Read and write mode
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZlN8BsI6woicUKwusEJonQv0K4KeQJapicfuqLpx8tIosQWtXLI0ibMsNey0RSBzqCQ6NSsv98QNLlxw/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
 |     |QPS  | Latency(ms) | CPU(mysqld) | Memory(mysqld) |
 |  ----  | ----  | ---- | ----  | ---- |
-| 对照组  | 9506 |  143 | 230% | 1.68G |
-| Agent组  | 9406 | 146 | 250% | 1.68G |
+| Control group  | 9506 |  143 | 230% | 1.68G |
+| Agent Group  | 9406 | 146 | 250% | 1.68G |
 
-结果说明：
+Result description:
 
-- QPS 下降 1.05%
+- QPS decreased by 1.05%
 
-- 时延提高 2%
+- Latency increased by 2%
 
-- 1W 的 QPS CPU 占用提高 0.2c
-> 该部分资源主要消耗在高并发下产生的大量perf事件提交
+- 1W QPS CPU usage increased by 0.2c.
+> This part of the resources mainly consumes a large number of perf event submissions generated under high concurrency
 
 
-#### b）只读模式
+#### b）Read-only mode
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZlN8BsI6woicUKwusEJonQv0cuL7mmyHxNJkq69WyXcRyjibI9JricwRpNCqFQ3ibZOq2kb7TjtkfrBcw/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
 |     |QPS  | Latency(ms) | CPU(mysqld) | Memory(mysqld) |
 |  ----  | ----  | ---- | ----  | ---- |
-| 对照组  | 46499 |  82 | 310% | 1.68G |
-| Agent组  | 44195 | 86 | 290% | 1.68G |
+|  Control group  | 46499 |  82 | 310% | 1.68G |
+| Agent Group   | 44195 | 86 | 290% | 1.68G |
 
- 结果说明：
-- 纯读模式的 QPS 峰值可达到 4.5w，该压力下面持续增压直到CPU打满也会导致QPS下降至3.5w（无 Agent 的情况）。而开启 agent 采集峰值情况会消耗更多的 CPU(相当于占用了 MySQL 本身的CPU,会消耗 0.2*4.5=0.9c 用于执行eBPF 程序，4c8g 的 MySQL 规格实际能用于 MySQL 进程使用的是 3c8g 的规格，CPU打满情况QPS 可达到 3.2w)，如果给该实例额外增加0.9c的CPU，该性能吞吐可以达到和当前无Agent一致。
-- 内存使用无变化
-
-#### c）只写模式
+ Result description:
+- The peak QPS of pure read mode can reach 4.5w. Continuously increasing the pressure until the CPU is full will cause the QPS to drop to 3.5w (without an agent). Enabling the agent to collect the peak situation will consume more CPU (equivalent to occupying MySQL's own CPU, which will consume 0.2 * 4.5 = 0.9c for executing eBPF programs. The 4c8g MySQL specification can actually be used for MySQL processes, but the 3c8g specification can be used. When the CPU is full, the QPS can reach 3.2w). If an additional 0.9c CPU is added to this instance, the performance throughput can reach the same level as the current one without an agent.
+- No change in memory usage
+#### c）Write pattern only
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZlN8BsI6woicUKwusEJonQv0qchmEBwWm7WNoP3k6q1efLFfkDR1POGzIk5DywzjndPYbgjrjBOlvQ/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
 |     |QPS  | Latency(ms) | CPU(mysqld) | Memory(mysqld) |
 |  ----  | ----  | ---- | ----  | ---- |
-| 对照组  | 5587 |  112 | 210% | 1.68G |
-| Agent组  | 5656 | 113 | 220% | 1.68G |
+| Control group  | 5587 |  112 | 210% | 1.68G |
+| Agent Group  | 5656 | 113 | 220% | 1.68G |
 
-结果说明：
+Result description:
 
-- QPS 无下降
+- No drop in QPS
 
-- 时延无明显变化
+- No significant change in delay
 
-- 5k 的 QPS CPU 占用提高 0.1c
+- 5k QPS CPU usage increased by 0.1c.
 
-### 2）场景 B - TPC-C 测试结果
+### 2）Scene B - TPC-C test results
 
 |     |QPS  | Latency(ms) | CPU(mysqld) | Memory(mysqld) |
 |  ----  | ----  | ---- | ----  | ---- |
-| 对照组  | 9120 |  143 | 230% | 1.68G |
-| Agent组  | 9003 | 146 | 250% | 1.68G |
+| Control group  | 9120 |  143 | 230% | 1.68G |
+| Agent Group  | 9003 | 146 | 250% | 1.68G |
 
-结果说明：
+Result description:
 
-- QPS 下降 1.28%
+- QPS decreased by 1.28%
 
-- 时延提高 2%
+- Latency increased by 2%
 
-- 1w 的 QPS CPU 占用提高 0.2c
+- 1W QPS CPU usage increased by 0.2c.
 
-- 场景 B 的数据和场景 A 的基本吻合，说明 Agent 的主要消耗来自于 QPS，1w 的 QPS 占用 0.2c 的 CPU 资源
+- The data of Scenario B is basically consistent with that of Scenario A, indicating that the main consumption of Agent comes from QPS. 1w QPS occupies 0.2c of CPU resources
 
-### 3）场景 C - 数据库单个 SQL 请求消耗场景
+### 3）Scenario C - Database single SQL request consumption scenario
 ```
 connection-28688 [014] d... 20941.295869: bpf_trace_printk: mysql_sql_req_entry start:20942742697886
 connection-28688 [014] d... 20941.295956: bpf_trace_printk: mysql_sql_req_entry end:20942742817108
@@ -166,58 +166,56 @@ connection-28688 [014] d... 20941.304001: bpf_trace_printk: mysql_sql_return sta
 connection-28688 [014] d... 20941.304019: bpf_trace_printk: mysql_sql_return end:20942750881134
 ````
 
-|     |程序消耗（ns）  | uprobe探针命中消耗（ns） | 消耗汇总（ns）） |
+|     |Program consumption (ns) | uprobe probe hit consumption (ns) | consumption summary (ns)) |
 |  ----  | ----  | ---- | ----  | 
-| SQL 请求 | 119222 |  3000 | 0.122 | 
-| SQL 返回 | 21158 | 4500 | 0.025 | 
+| SQL Request | 119222 | 3000 | 0.122 |
+| SQL return | 21158 | 4500 | 0.025 |
 
-结果说明：
+Result description:
 
-- 添加 eBPF 探针后，单条 SQL Latency(ms) 增加 0.147ms
+- After adding the eBPF probe, the single SQL Latency (ms) increased by 0.147ms
 
-测试结果表明  **Agent消耗只与业务数据库QPS有关**，**在读写模式和只写模式的场景下几乎无任何影响**。在极端只读场景压测下，轻量级的采集对生产业务的影响 1w QPS 需要消耗 0.22c 的 CPU 资源。
+The test results show that **Agent consumption is only related to the QPS of the business database**, and **has almost no impact in the scenarios of read-write mode and write-only mode**. In the extreme read-only scenario torture testing, the impact of lightweight collection on production business requires a CPU resource consumption of 0.22c.
 
-## 1c1g的Agent进程自身资源消耗如何？
+## How does the Agent process of 1c1g consume its own resources?
 
-上面 A、B、C三个场景测试过程中，我们同时也记录了主机上Agent进程自身在高负载下的资源消耗，见下表：
+During the testing process of scenarios A, B, and C, we also recorded the resource consumption of the Agent process on the host under high load, as shown in the table below.
 |     |CPU  | Memory（G）|
 |  ----  | ----  | ---- |
-| 压测状态（25000QPS） | 61% |  0.168 | 
-| 静态（监测无压力实例） | 5% | 0.168 |
-| 不纳管实例（不开启eBPF） | 1% | 0.028 |
+| torture testing status （25000QPS） | 61% |  0.168 | 
+| Static (monitored without pressure instance) | 5% | 0.168 |
+| Do not manage instances (do not enable eBPF) | 1% | 0.028 |
 
-Agent 自身资源占用情况:
+Agent's own resource usage:
 
-- 只采集主机性能数据时，使 CPU 占用为 0.01c,内存占用 0.028G
+- When only collecting host performance data, the CPU usage is 0.01c and the memory usage is 0.028G
 
-- 增加一个实例，且该实例无压力时，CPU 占用增长 0.04c,内存增长 0.14G
+- When an instance is added and there is no pressure, CPU usage increases by 0.04c and memory increases by 0.14G.
+- For every additional 1w QPS of collected instances, the CPU consumption of the agent increases by 0.22c, with no memory growth
+## Summary
 
-- 采集的实例每增加 1w QPS，agent 的 CPU 消耗增加 0.22c, 内存无增长
+Through a comprehensive evaluation of six scenarios, we have a complete understanding of the performance of Agent, DBdoctor for the collection of consumption accurate to the QPS level, 1w QPS consumption of 0.2c of resources, the overall performance loss is normally controlled within 2% (very low range), but also through DBdoctor's performance diagnosis function to optimize the database, reduce SQL resource consumption, can greatly improve performance.
 
-## 总结
+Performance loss and resource comparison of extreme torture testing:
 
-通过六个场景的全方位评测，我们对 Agent 的性能情况有了完整的了解，DBdoctor针对采集带来的消耗精确到QPS量级上，1w的QPS消耗0.2c的资源，整体性能损耗正常控制在2%以内(非常低的范围)，同时还可以通过DBdoctor的**性能诊断功能优化数据库、降低SQL资源消耗，能大幅度提升性能。**
+- Impact on MySQL performance:
 
-极端压测的性能损耗和资源对照：
+    - In read-only and read-write scenarios, the impact on MySQL performance is not significant, and QPS and latency fluctuate around 2%, within the error fluctuation range
 
-- 对MySQL性能影响：
+- Impact on MySQL resources:
 
-    - 在只读和读写场景对MySQL性能影响均不明显，QPS和时延均在2%左右波动，在误差波动范围内
+    - Every 10K QPS will increase the CPU usage of MySQL by 0.2c.
 
-- 对MySQL资源影响：
+    - No impact on MySQL memory usage
 
-    - 每10K QPS会使Mysql占用的CPU增加0.2c
+- Agent process's own resource usage:
 
-    - 对MySQL内存占用无影响
+    - Without collecting Mysql/data (this scenario only collects host resource data), use 0.04c CPU and 0.24G memory
 
-- Agent进程自身资源占用情况:
+    - In the acquisition state (MySQL QPS 2w), using a 0.85c CPU and 0.24G memory.
 
-    - 在不采集Mysql/数据的情况下(该场景只采集主机资源数据)，使用0.04c CPU，0.24G内存
+The above performance loss results do not know what everyone feels? Compared with the performance loss after MySQL itself opens general_log, it is simply not worth mentioning.
 
-    - 在采集状态下(MySQL QPS 2w)，使用0.85c CPU，0.24G内存。
+Such low performance loss can collect the full amount of logs and perform precise diagnosis at the kernel level , it is indeed technology that changes the world.
 
-以上性能损耗结果不知大家看了什么感受？**与MySQL自身开启general_log后的性能损耗相比简直不值一提。**
-
-**如此低的性能损耗就可以采集到全量日志，并进行内核级精确的诊断**，果然是技术改变世界。
-
-最后，本文所有测试数据均是在 Agent 默认配置下测得的。我们也期待小伙伴的更多评测，更期待把评测报告与我们共享。大家可以在下方官网地址下载DBdoctor，软件零依赖、一键拉起，亲手产出自己的压测数据。
+Finally, all the test data in this article was measured under the default configuration of the Agent. We also look forward to more reviews from our friends, and even more so, we look forward to sharing the review report with us. You can download DBdoctor from the official website address below. The software has zero dependencies and can be pulled up with one click to produce your own torture testing data.

@@ -1,102 +1,99 @@
-# 史上最强的SQL审核工具，求挑战
+# The most powerful SQL audit tool in history
 
-## 业界SQL审核现状
+## The current state of SQL auditing in the industry
 
-SQL审核是指对未上线的SQL进行检测，提前识别是否符合规范，以保证上线质量。Yearning、Archery 、Bytebase、goInception、SQLE 是当前国内主流的开源 SQL 审核工具，均是基于**规则**来进行**SQL审核**，可以检查规范性，但无法**基于线上数据情况**进行**SQL性能评估**，所以**审核后的SQL**上线后依然会存在**性能隐患**。
+SQL audit refers to the detection of SQL that is not online, and identify whether it meets the specifications in advance to ensure the online quality. Yearning, Archery, Bytebase, goInception, SQLE are the current mainstream open-source SQL audit tools in China, all of which are based on rules for SQL audit , which can check the standardization, but cannot be based on the online data situation for SQL performance evaluation , so the SQL after the audit will still exist after the online performance risks .
 
-## 基于规则是否能做SQL性能审核？
+## Can I do SQL performance auditing based on rules?
 
-每个公司都有自己的SQL规范标准，即不同的规则。规则越多，说明管理越严格。如以下常见的SQL审核规则：
+Every company has its own SQL specification standard, i.e. different rules. The more rules, the stricter the management. For example, the following common SQL audit rules:
 
-- 建表需要有自增主键
-- 禁止使用触发器
-- 禁止使用存储过程
-- 禁止使用索引套函数
-- 查询条件中使用in（...）关键字元素个数不要超过5000
+- To create a table, you need to have an autoincrement primary key
+- Prohibit the use of triggers
+- Prohibit the use of stored procedures
+- Prohibit the use of index sleeve functions
+- The number of in (...) keyword elements used in the query condition should not exceed 5000
 
-通过这些规则可以将SQL语法层面的问题提前识别出来。大家也许有疑问，基于DBA经验沉淀的审核规则是否可靠？以上面第五条规则为例，以5000为个数限制该规则本身就有问题，实际还是从SQL涉及的表行记录长度、数据量、离散层度、IO页扫描次数等多因素综合考虑，不应该是一个具体经验值。
+Through these rules, problems at the SQL syntax level can be identified in advance. You may have questions about whether the audit rules based on DBA experience are reliable? Taking the fifth rule as an example, limiting the rule to 5000 is itself problematic. In fact, it is still a comprehensive consideration of multiple factors such as table row record length, data volume, discrete layer, and IO page scan times involved in SQL, and should not be a specific experience value.
 
-SQL规则审核能否覆盖性能的审核？我们手写一条规则来验证SQL是否有性能问题：
+Can SQL rule auditing override performance auditing? We handwrite a rule to verify whether SQL has performance issues:
 ```SQL
-#待审核的SQL如下，pur_jit_item表有自增主键id，隔离级别RR，没有其他索引
+#The SQL to be reviewed is as follows, pur_jit_item table has self-incrementing primary key id, isolation level RR, and no other indexes
 update pur_jit_item set qualified_qty=5316 where fatory_code=7 and mat_sap_code=3
 ```
-![性能问题](../../images/TheMostPowerfulSqlAuditToolEver/PerformanceProblem.png)
+![Performance Problem](../../images/TheMostPowerfulSqlAuditToolEver/PerformanceProblem.png)
 
-当字段少的时候，我们从上图中可以看到SQL规则审核**命中**的**字段未加索引**是存在有**性能问题**的，但如果字段过多、部分字段存在索引、字段区分度不好等场景时，规则该如何写？很多有经验的DBA，试图通过列举所有场景的规则来实现性能识别是不可取的。从实际生产来看，要考虑的因素太多，同样的SQL在不同的数据集上的结果都可能有N种，无法准确命中。
+When there are few fields, we can see from the above figure that the fields not indexed that the SQL rule review hits have performance problems , but if there are too many fields, some fields have indexes, and the field discrimination is not good, how should the rules be written? Many experienced DBAs try to achieve performance identification by enumerating the rules of all scenarios. From the actual production point of view, there are too many factors to consider, and the same SQL results on different datasets may have N kinds, which cannot be accurately hit.
 
-综上所述，我们得出结论，以传统经验规则的方式做SQL性能审核并不可取，亟须一种低消耗快速的方式。
+In summary, we conclude that it is not advisable to perform SQL performance audits in a traditional rule-of-thumb manner, and a low-cost and fast way is urgently needed.
 
-## SQL性能审核灵感
-对数据库内核熟悉的应该了解过MySQL、PgSQL的SQL最优执行路径，通过Cost-based Optimization进行评估，然后进行最优路径选择。我们来看下MySQL Cost优化器评估过程。
+## SQL performance review inspiration
+Those who are familiar with the database kernel should know the optimal execution path of MySQL and PgSQL, evaluate it through Cost-based Optimization, and then select the optimal path. Let's take a look at the MySQL Cost Optimizer evaluation process.
 
-![审核灵感](../../images/TheMostPowerfulSqlAuditToolEver/AuditInspiration.png)
+![AuditInspiration](../../images/TheMostPowerfulSqlAuditToolEver/AuditInspiration.png)
 
-##### 1）建立评估标准
+##### 1）Establish evaluation criteria
 
-MySQL系统表内置默认的代价计算标准，分为Server层CPU代价和存储引擎层IO代价，比如物理临时表disk_temptable_create_cost默认一次代价为20。通过这种详细标准定义就可以将SQL在每个操作上的代价量化出来，得出具体的Cost值，进而为后续的路径选择提供数据支撑。
+MySQL system tables have built-in default cost calculation standards, which are divided into Server layer CPU cost and storage engine layer IO cost. For example, physical temporary tables disk_temptable_create_cost default one-time cost is 20. Through this detailed standard definition, the cost of SQL in each operation can be quantified, and specific Cost values can be obtained, which can provide data support for subsequent path selection.
+##### 2）SQL optimal path selection
 
-##### 2）SQL最优路径选择
+Session is started OPTIMIZER_TRACE, after the SQL is executed, the Trace log will record the detailed value of the cost consumption of each index path of the SQL, and finally select the path with the lowest cost consumption from all the paths as the best access path (hit index).
 
-Session开启OPTIMIZER_TRACE，SQL执行后，Trace日志中会记录该SQL详细的各条索引路径Cost消耗的数值，最终会从所有的路径中选择Cost消耗最低的路径作为best access path（命中的索引）。
+To sum up, the implementation of the bypass Cost optimizer requires solving two problems. First, it defines a set of cost evaluation criteria similar to MySQL, and then sorts out which statistics the Cost of each index path depends on and obtains.
 
-综上所述，实现旁路Cost优化器需要解决两个问题，首先仿照MySQL定义一套一样的Cost评估标准，然后梳理出每条索引路径的Cost依赖哪些统计信息并获取。
+## Database Cost Optimizer Source Code Interpretation
 
-## 数据库Cost优化器源码解读
+The final path selection of the database is calculated based on the Cost standard, and the external Cost calculation standard and formula can be bypassed to calculate the Cost consumption. Let's disassemble the kernel calculation process of the Cost optimizer from the MySQL Access Type dimension.
 
-数据库最终的路径选择是基于Cost标准计算出来的，外置Cost计算标准和公式即可旁路来计算Cost消耗。下来我们来从MySQL Access Type维度一起拆解Cost优化器的内核计算过程。
+![Cost optimizer source code interpretation](../../images/TheMostPowerfulSqlAuditToolEver/CostOptimizerSourceCodeInterpretation.png)
 
-![Cost优化器源码解读](../../images/TheMostPowerfulSqlAuditToolEver/CostOptimizerSourceCodeInterpretation.png)
-
-##### 1）源码解析Cost计算公式
-Cost的计算公式可以直接从代码中解读出来，比如以Table scan全表扫描为例，Table scan的Cost分为IO Cost跟CPU Cost两个部分之和，大致的公式为：
+##### 1）Source Code Analysis Cost Calculation Formula
+The calculation formula of Cost can be directly interpreted from the code. For example, taking Table scan full table scan as an example, the Cost of Table scan is divided into the sum of the two parts of IO Cost and CPU Cost. The approximate formula is:
 
 ```C
 IO-Cost:#Pages_In_Table * IO_BLOCK_READ_COST + CPU-Cost:#Records * ROW_EVALUATE_COST
 ```
+The IO-Cost is calculated by Table_Scan_Cost. There are two key variables Records and Pages_In_Table, which represent the number of row records and pages of the table respectively. In INNODB, the values of these two variables can be obtained by ha_innobase :: info_low (ha_innobase :: info) and ha_innobase :: scan_time (). Knowing the values of these two variables , you will know the specific Cost value .
 
-其中IO-Cost是通过Table_Scan_Cost来进行计算。这里有两个关键的变量Records跟Pages_In_Table，分别表示这个表的行记录数和页数，在INNODB中这两个变量的值可通过ha_innobase::info_low(ha_innobase::info)和ha_innobase::scan_time()来进行获取，知道了这**两个变量的值**，就知道具体的**Cost值**。
+##### 2）How to get the specific variable value in the Cost formula
+For the variables in the formula , here take the existing index as an example , MySQL InnoDB estimates the statistical information of the index by analyzing the randomly sampled index leaf pages (sampling 20 pages, the statistical information can be obtained directly from the system table), estimates and selects the index path by sampling. If the bypass is implemented here, the variable value extraction can be carried out with full reference to the existing logic of MySQL.
+##### 3）Cost calculation of this SQL for all paths
+By calculating the cost of all paths, we can determine the path with the least cost consumption, which is the optimal path.
 
-##### 2）如何获取Cost公式中的具体变量值
-针对**公式中的变量**，这里**以已存在的索引为例**，MySQL **InnoDB通过分析随机采样的索引叶子页来估算索引的统计信息**（采样20个页，该统计信息可以从系统表中直接获取），通过采样来估算并进行索引路径的选择。这里旁路实现的话可以完全参照MySQL已有的逻辑进行变量值提取。
+To sum up, we found that the external Cost optimizer is feasible. The external collection of the SQL table statistics, and then imitate the original MySQL analysis and evaluation behavior, can obtain the actual cost value of the SQL in the production environment. But there is a problem here, How to obtain statistical information for non-existent indexes?
 
-##### 3）对所有路径进行该SQL的Cost计算
-通过计算所有路径的Cost，我们能得出最终Cost消耗最小的路径即最优路径。
+## Principle of Bypass Cost Optimizer Based on eBPF
 
-综上所述，我们发现外置Cost优化器是可行的，外置采集该SQL表的统计信息，然后仿照MySQL原有的分析评估行为，即可得出该SQL在生产环境实际的Cost值。但这里存在一个问题，**针对不存在的索引如何获取统计信息呢？**
+To achieve SQL performance evaluation of the production database, it is necessary to find all possible index execution paths of this SQL. Based on system tables It is relatively simple to obtain statistical information for existing indexes, but it is impossible to directly obtain statistical information for indexes that do not exist on the production database (to avoid high-risk heavy operations such as DDL directly on the source database) Therefore, it is necessary to extract statistical information from actual data online based on the SQL table. Here we can consider using eBPF technology to obtain key data indicators.
 
-## 基于eBPF的旁路Cost优化器原理
+In the scenario of data skew, the range value of the where condition field of each SQL is different, and the true cost of index execution path selection will be different. Obtaining sampling pages is particularly important. The following describes in detail the process of SQL performance evaluation:
 
-要实现对生产库的SQL性能评估，需要找出这条SQL的所有可能的索引执行路径。基于系统表**对已存在的索引统计信息获取比较简单，但针对生产库上不存在的索引（避免在源库上直接进行DDL等风险较高的重操作）无法直接获取到统计信息**，需要基于该SQL表在线上实际数据进行统计信息提取。这里我们可以考虑通过**eBPF技术去获取关键数据指标。**
+![Optimizer Principle](../../images/TheMostPowerfulSqlAuditToolEver/OptimizerPrinciple.png)
 
-在数据倾斜的场景中，每条SQL的where条件字段的范围值不一样，索引执行路径选择的真实Cost会不一样，**获取采样页尤为重要。下面详细介绍SQL性能评估的流程：**
+1. SQL Parse parses the condition fields and query fields of SQL tables.
 
-![优化器原理](../../images/TheMostPowerfulSqlAuditToolEver/OptimizerPrinciple.png)
+2. Find all paths involved in reducing cost consumption. For the fields obtained in the first step, then permutate and combine them to establish A (n, m) candidate index paths .
 
-1. SQL Parse解析SQL表的条件字段、查询字段。
+3. Simulate the page sampling logic of MySQL, perform detailed page analysis and statistical information extraction, and restore the real sampling statistical information on the MySQL production library. For the data skew and other scenarios in the above case, it is possible to avoid the situation where the statistical information is inaccurate and the production execution path and the recommended path are inconsistent.
 
-2. 找出涉及减少Cost消耗的所有路径。针对第一步得到的字段，然后进行排列组合，建立出A(n,m)个**候选索引路径**。
+4. The greedy algorithm can calculate the cost of each candidate index, and the execution path of the current optimal index is the one with the smallest cost .
 
-3. 模拟MySQL的页采样逻辑，进行详细页分析并进行统计信息提取，还原MySQL生产库上的真实采样统计信息。针对上面Case中的数据倾斜等场景，就可以避免统计信息不准导致生产执行路径和推荐路径不一致的情况。
+5. If the cost consumption of the optimal index is significantly different from that of the previous original path, it indicates that there is a performance problem with SQL.
 
-4. 利用**贪心算法**可计算出每个候选索引的Cost，最后**得出Cost代价最小**的即为当前的最优索引的执行路径。
+In summary, whether there are performance issues with a single SQL can be engineered, but in actual production, we also need to pay attention to the global optimization of the table dimension , and need to build fewer indexes to meet the performance throughput of each business SQL and reduce the overhead caused by maintaining indexes.
+## How to achieve global optimization in table dimensions?
 
-5. 若该最优索引与之前原有路径Cost消耗相差较大，则说明SQL存在性能问题。
+The performance evaluation of a single SQL can be implemented in the above way, but in actual production, the maintenance of the index itself requires resources, so the more indexes are not the better. It is necessary to establish a globally optimal index. According to the experience of DBAs, two ways can be adopted for optimization: "de-redundancy" and "de-unused indexes". However, in practice, due to concerns about performance impact on business, people often dare not perform index operations and only do addition without subtraction. The following will elaborate on how to find the global optimal solution from the table dimension:
 
-综上所述，**单条SQL是否存在性能问题**可以工程化实现，但在实际生产中还需要关注到**表维度**的全局最优，需要建更少的索引来满足各业务SQL的性能吞吐，减少维护索引导致的开销。
-
-## 表维度全局最优如何实现？
-单条SQL的性能评估可以按照上面的方式实现，但在实际生产中由于索引本身的维护是需要消耗资源的，因此索引不是越多越好，需要建立全局最优的索引，按照DBA的经验可采取“去冗余”和“去未使用索引”两种方式来进行优化，但在实际中往往由于担心对业务有性能影响而不敢进行索引的操作，只做加法不做减法。**下面将详细展开如何从表维度求全局最优解：**
-
-![全局最优如何实现](../../images/TheMostPowerfulSqlAuditToolEver/HowIsGlobalOptimizationImplemented.png)
+![How to achieve global optimal](../../images/TheMostPowerfulSqlAuditToolEver/HowIsGlobalOptimizationImplemented.png)
 
 
-1. SQLParse解析SQL对应的库表、字段，并进行最优索引的推荐。
-2. 结合全量的审计日志分析，统计数据库实例涉及该表的所有的指纹SQL。
-3. 分析所有指纹SQL并提取公共高频字段、指纹SQL特有字段等进行分类。
-4. 按照字段分类进行索引的排列组合，对每条指纹SQL进行Cost计算并与原Cost进行对比，在不衰减性能的情况下，得出多条最优路径。
-5. 基于上一步的多条最优路径，得出全局Cost最优索引路径。
-6. 若该索引与之前原有路径Cost消耗相差较大，则说明SQL存在性能问题。
-7. 该推荐的索引路径为最佳方案。
+1. SQLParse parses the database & table and fields corresponding to SQL and recommends the best index.
+2. Combining the full audit log analysis, the Statistical Data database instance involves all the fingerprint SQL of the table.
+3. Analyze all fingerprint SQL and extract common high-frequency fields, fingerprint SQL-specific fields, etc. for classification.
+4. Arrange and combine indexes according to field classification, calculate the cost of each fingerprint SQL and compare it with the original cost, and obtain multiple optimal paths without attenuating performance.
+5. Based on the multiple optimal paths in the previous step, obtain the global cost optimal index path.
+6. If the index has a large difference in cost consumption from the previous original path, it indicates that there is a performance problem with SQL.
+7. The recommended index path is the best solution.
 
-综上所述，具有基于外置Cost优化器的全局最优索引推荐方案是可行的，基于该方案在SQL上线前即可实现SQL性能审核，并评估出基于生产数据模型的全局最优索引推荐。
+In summary, it is feasible to have a globally optimal index recommendation scheme based on an external Cost optimizer. Based on this scheme, SQL performance auditing can be achieved before the SQL is launched, and the globally optimal index recommendation based on the production data model can be evaluated.
