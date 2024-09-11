@@ -1,36 +1,38 @@
-# MySQL加个索引都可能丢数据，这个坑你知道吗？
+# Adding an index to MySQL may result in data loss. Do you know this pitfall?
 
-## 前言
+## Preface
 
-近期，我们收到一位数据库运维小伙伴的咨询，他们有一个MySQL 5.6的数据库，需要**对核心支付表做DDL加索引**，咨询我们如何加索引更优雅。基于DBA经验，给表添加索引主要有以下几种方式：
+Recently, we received a consultation from a database operation and maintenance partner. They have a MySQL 5.6 database and need to add DDL indexes to the core payment table . They asked us how to add indexes more elegantly. Based on DBA experience, there are mainly the following ways to add indexes to tables:
 
-- 用MySQL原生的DDL语句（包括OnlineDDL）
+- Use MySQL native DDL statements (including OnlineDDL)
 
-- 用pt-osc，新建临时表+触发器来实现
+- Use pt-osc, create a temporary table + trigger to achieve
 
-- 用gh-ost，新建临时表+基于binlog来实现
+- Use gh-ost to create a new temporary table and implement it based on binlog
 
-Session级别关闭Binlog，备库先加索引，然后做主备切换
-具体选择那种方式需要综合考虑表结构、主备延时、业务写入负载、磁盘IO、是否影响业务、使用习惯等多方面因素。经过我们综合评估该支付场景使用原生的OnlineDDL更佳，但该小伙伴反馈他们的运维流程要求DDL变更必须使用pt-osc，迫于流程最终还是使用pt-osc添加索引。然而接下来运维小伙伴的操作差点让公司发生巨大损失，幸好使用了DBdoctor性能洞察功能提前发现问题并及时止损。
+Close Binlog at the Session level, add indexes to the standby database first, and then switch between primary and secondary
 
-## pt-osc原理，有坑吗?
-### 1）pt-osc原理
+The specific choice of which method to use requires comprehensive consideration of various factors such as table structure, primary and backup latency, business write load, disk IO, whether it affects business, and usage habits. After our comprehensive evaluation, it is better to use the native OnlineDDL for this payment scenario. However, the colleague feedback that their DevOps flow requires the use of pt-osc for DDL changes, and ultimately uses pt-osc to add indexes due to the process. However, the operation of the operation and maintenance colleague almost caused huge losses to the company. Fortunately, the DBdoctor performance insight function was used to detect problems in advance and stop losses in time.
+
+## Principle of pt-osc, any pitfalls?
+### 1）Principle of pt-osc
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnQLibXQKiciaBeelc6FXb34Isya01ic73LhmcElpGzptQr8dAytp6lXgqaq1Xib4QuYEj4Je0utTsw7lA/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-pt-osc的大致方式是通过创建一个临时表，然后按照主键chunk分批方式，拷贝源表中数据，同时通过三个写相关触发器来控制增量数据实时写入到临时表中，达到与源表最终的数据一致，最终rename交换。从原理上来看，实现逻辑比较简单。那么该原理对业务有损吗？
+The general method of pt-osc is to create a temporary table, then copy the data in the source table in batches according to the primary key chunk, and control the incremental data to be written to the temporary table in real time through three write-related triggers, so as to achieve consistency with the final data of the source table and finally rename exchange. From a principle perspective, the implementation logic is relatively simple. So, does this principle harm the business?
 
-### 2）运维评估pt-osc是否符合要求
-在从pt-osc的实现，我们能直接看出有以下问题：
-- 创建临时表，会导致空间翻倍，需要预留足够空间
-- 触发器的存在，会导致写入翻倍，需要确保磁盘IO能支撑
-- 写入增加会导致主备存在延时
-- 存在死锁导致业务事务回滚
-经过运维同学人员的详细评估，基于当前业务量，前三点不会有问题，第四点当前MySQL的innodb_autoinc_lock_mode参数为2，不会产生自增锁导致的死锁问题。所以运维同学评估是可以直接在线上通过pt-osc来添加索引。
+### 2）Operations and maintenance evaluate whether pt-osc meets the requirements
+From the implementation of pt-osc, we can directly see the following problems:
+- Creating a temporary table will cause the space to double, and sufficient space needs to be reserved
+- The existence of the trigger will cause the write to double, and it is necessary to ensure that the disk IO can support it
+- Increased writing will cause delay between primary and secondary
+- Deadlock causes business transaction rollback
 
-### 3）线上变更，踩坑死锁了
+After detailed evaluation by operation and maintenance colleagues, based on the current business volume, the first three points will not be a problem, and the fourth point is that the current MySQL innodb_autoinc_lock_mode parameter is 2, which will not cause deadlock problems caused by auto-increment locks. Therefore, the evaluation of operation and maintenance colleagues can directly add indexes online through pt-osc.
 
-在线上进行变更过程中，发现业务发生了死锁，下面是业务的详细死锁日志：
+### 3）Change online, step on the pit deadlock
+
+During the online change process, a deadlock was found in the business. Below is the detailed deadlock log of the business.
 
 ```Bash
 LATEST DETECTED DEADLOCK
@@ -70,47 +72,44 @@ Record lock, heap no 214 PHYSICAL RECORD: n_fields 2; compact format; info bits 
 ------------
 ```
 
-从上面的日志中我们能看到trigger对应的临时表操作发生了回滚，相当于正常业务针对源表的操作也回滚了，影响到业务。
+From the above log, we can see that the temporary table operation corresponding to the trigger has been rolled back, which is equivalent to the normal business operation on the source table being rolled back, affecting the business.
 
-## pt-osc紧急回滚，会丢数据？
+## Pt-osc emergency rollback, will data be lost?
 
-### 1）紧急回滚
+### 1）Emergency rollback
 
-运维紧急进行回滚，按下面步骤进行操作：
+Emergency rollback for operation and maintenance, follow the steps below:
 
-- 首先kill掉pt-osc的脚本进程
+- First kill the script process of pt-osc
 
-- 删除线上pt-osc的三个触发器
+- Remove three triggers for online pt-osc
 
-最终，运维确认已经回滚完成，待第二天分析完原因再变更。
+Finally, the operation and maintenance confirmation has been rolled back, and changes will be made after analyzing the reasons the next day.
 
-### 2）发现大坑，pt-osc没处理干净
+### 2）Found a big pit, pt-osc did not clean it up
 
-业务开发同学使用DBdoctor的性能洞察进行问题分析时，发现业务当前还有临时表的insert语句，认为是运维又开始进行加索引变更了，找运维确认。
+When a business development colleague used DBdoctor's performance insight for problem analysis, they found that there were still insert statements for temporary tables in the business. They thought that the operation and maintenance department had started to add index changes again and asked the operation and maintenance department to confirm.
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnQLibXQKiciaBeelc6FXb34IsC81fAhVWOiaN9ibsx8PJ5HYJa7nxfPiad9duibNfm8H4RicQK2YYcZCejgQ/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-运维反馈变更已经停止，经过执行检查发现kill pt-osc脚本的时候只kill了shell脚本的进程，子进程没有kill，运维同学再次进行了kill，经过无触发器状态跑了8个多小时，pt-osc进程最终停止了。
+The operation and maintenance feedback change has stopped. After checking the execution, it was found that only the process of the shell script was killed when killing the pt-osc script, and the child process was not killed. The operation and maintenance colleague performed the kill again. After running for more than 8 hours without triggers, the pt-osc process finally stopped.
 
-### 3）如果pt-osc在无触发器状态，进程最终完成了，会丢数据吗？
+### 3）If pt-osc is in a trigger-free state and the process eventually completes, will data be lost?
 
-从上面pt-osc的原理上来看，全量chunk拷贝都是按照主键递增的方式去做chunk切分并处理，不会对已经处理过的chunk再拷贝。所以会有以下两种问题：
+From the principle of pt-osc above, full chunk copying is done by chunk splitting and processing in a primary key increment manner, and chunks that have already been processed will not be copied again. Therefore, there will be the following two problems:
 
-- 如果该变更的表只有按照主键自增id进行写入数据，那么最终全量拷贝的最后一个chunk就是最新的数据，能保证数据一致，**不会丢数据**。
+- If the changed table only writes data according to the primary key auto-increment id, then the last chunk of the final full copy is the latest data, which can ensure data consistency and will not lose data .
+- For the chunk that has been fully copied, if the data changes again, because the trigger is gone, it is equivalent to incremental loss, and the data is lost in insert/delete/update changes.
 
-- 对已经全量拷贝后的chunk再发生数据变更，由于触发器没有了，相当于增量丢失，insert/delete/update变更的**数据存在丢失**。
+Such a big pit, fortunately, the process of pt-osc has not been completed. After inspection, more than 9,000 payment data updates occurred in the business within 8 hours. If it were not discovered by DBdoctor, more than 9,000 payment data would be lost, which is simply fatal for the company.
 
-这么大的坑，庆幸pt-osc的进程没有执行完。经过检查，8个小时内业务发生了**9千多条支付数据更新**，如果不是DBdoctor发现，将有9千多条支付数据丢失，对公司来说简直要命。
+PT-OSC is not a panacea. Everyone must be careful when making changes. A slight mistake may cause serious malfunctions.
 
-pt-osc不是万能药，大家做变更一定要仔细，稍微不慎，可能引发很严重的故障。
-
-#### 4）最终原生的OnlineDDL变更完成
+#### 4）Final native OnlineDDL changes completed
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZnQLibXQKiciaBeelc6FXb34IsGIzMBnZicUmZyq4GonMVxDE2uNSbT5eKusybsv7DPFYiaPqdXfKxyPWw/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-最终，该运维小伙伴接受了我们的建议，使用原生OnlineDDL进行**核心支付表OnlineDDL变更**，最终变更成功。从上图中可以看到实际变更的详细进展情况，对变更可回溯可追踪。
+In the end, the operation and maintenance team accepted our suggestion and used the native OnlineDDL for the core payment table OnlineDDL change , and the change was successful. The detailed progress of the actual change can be seen from the above figure, and the change can be traced back.
+## Summary
 
-## 总结
-
-各位研发或者DBA小伙伴们，你们是否也会经常遇到类似数据库DDL变更导致的故障吗？可以用DBdoctor进行数据库性能评估是否能做DDL，执行DDL的过程全程可见，大家可以试试~
-
+Dear R & D or DBA colleagues, do you often encounter failures caused by database DDL changes? You can use DBdoctor to evaluate database performance and see if DDL can be done. The entire process of executing DDL is visible. You can give it a try~

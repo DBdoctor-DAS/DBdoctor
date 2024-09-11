@@ -1,46 +1,46 @@
-# eBPF实战教程五｜如何使用USDT探针定位MySQL异常访问(含源码)
+# eBPF Practical Tutorial 5 | How to use USDT probes to locate MySQL abnormal access (including source code)
 
-## 前言
+## Preface
 
-各位小伙伴们，非常感谢你们对我们eBPF专题系列文章的持续关注和热情支持！在之前的文章中，我们深入探讨了如何手写一个uprobe探测用户态程序。许多热心的小伙伴给我们发私信表达了他们对eBPF技术在数据库领域应用的浓厚兴趣，并希望我们能分享更多的相关案例。为了满足大家的期待，本文将带您深入了解用户态探测的另一种强大工具——USDT探针，以及它在数据库优化和监控中的潜在应用。
+Dear friends, thank you very much for your continued attention and enthusiastic support for our eBPF series of articles! In previous articles, we delved into how to handwrite a uprobe detection User Mode program. Many enthusiastic friends have sent us private messages expressing their strong interest in the application of eBPF technology in the database field and hoping that we can share more related cases. In order to meet everyone's expectations, this article will take you through another powerful tool for User Mode detection - the USDT probe, and its potential applications in database optimization and monitoring.
 
-本文是我们的eBPF专题系列第五篇纯技术分享文章——如何手码eBPF程序探测MySQL5.6 USDT，来实时识别数据库可疑的连接访问来源（user/host）。
+This article is the fifth pure technical sharing article in our eBPF series - how to manually code eBPF programs to detect MySQL 5.6 USDT and identify suspicious connection referrers (user/host) in the database in real time.
 
-## USDT原理介绍
+## Introduction to USDT Principle
 
-**USDT**（User Statically-Defined Tracing）是动态追踪系统 DTrace 的一部分，允许在用户态应用程序中定义静态探针。这些探针提供了一个强大的调试和性能分析工具，可以在运行时捕获和分析应用程序的行为，而无需修改应用程序代码或重新编译。
+**USDT**USDT (User Statistics-Defined Tracing) is a part of the dynamic tracing system DTrace that allows static probes to be defined in User Mode applications. These probes provide a powerful debugging and performance analysis tool that captures and analyzes application behavior at runtime without modifying application code or recompiling.
 
-- 探针定义
+- Probe definition
 
-开发人员在代码中插入静态探针点。这些探针点通常是一些宏定义，用于标记需要追踪的代码位置。例如，在 MySQL 中可以看到类似于 #define MYSQL_COMMAND_START(arg0, arg1, arg2, arg3) 这样的探针定义。
+Developers insert static probe points into the code. These probe points are usually macro definitions used to mark the location of the code that needs to be traced. For example, in MySQL, you can see probe definitions like #define MYSQL_COMMAND_START (arg0, arg1, arg2, arg3).
 
-- 探针注册
+- Probe registration
 
-编译应用程序时，这些探针会被注册到探针表中，生成相应的探针元数据。探针在正常运行时是无操作的（noop），不会影响应用程序性能。
+When compiling an application, these probes are registered in the probe table and corresponding probe metadata is generated. Probes are noop during normal operation and do not affect application performance.
 
-- 探针启用
+- Probe enabled
 
-当需要调试或分析时，调试器或追踪工具（如 DTrace、SystemTap 或 BPF）可以附加到这些探针上，并启用它们。当探针被启用时，它们会执行指定的动作，例如记录日志、捕获堆栈跟踪或收集性能数据。
+When debugging or analysis is needed, debuggers or tracing tools (such as DTrace, SystemTap, or BPF) can be attached to these probes and enabled. When the probes are enabled, they will perform specified actions, such as logging, capturing stack traces, or collecting performance data.
 
-- 捕获数据
+- Capture data
 
-当应用程序运行并触发探针时，探针会调用附加到它们的追踪程序，执行指定的调试或分析任务。这些任务可以包括打印变量值、收集性能指标等。
+When the application runs and triggers the probe, the probe will call the tracer attached to them to perform the specified debugging or analysis tasks. These tasks can include printing variable values, collecting performance metrics, etc.
 
-- 数据分析
+- Data Analysis
 
-通过收集的数据，开发人员可以分析应用程序的行为，找出性能瓶颈、调试问题或优化代码。
+By collecting data, developers can analyze the behavior of the application, identify performance bottlenecks, debug issues, or optimize code.
 
-## MySQL5.6 DTrace探针
-MySQL5.6源码probes_mysql_nodtrace.h中定义了大量的DTrace探针，我们从中选取了以下两个探测：
+## MySQL 5.6 DTrace Probe
+MySQL 5.6 source code probes_mysql_nodtrace defines a large number of DTrace probes, we have selected the following two probes:
 
 ```C
 #define  MYSQL_COMMAND_START(arg0, arg1, arg2, arg3)
 #define  MYSQL_COMMAND_DONE(arg0)
 ```
 
-备注：MySQL源码编译指定编译选项DENABLE_DTRACE=1才能开启Dtrace探针。关于使用DTrace跟踪mysqld更多信息可查看该链接文档(https://mysql.net.cn/doc/refman/5.6/en/dba-dtrace-server.html)
+Note: MySQL source code compile specifies the compile option DENABLE_DTRACE = 1 to enable Dtrace probes. More information about using DTrace to trace mysqld can be found in the linked document(https://mysql.net.cn/doc/refman/5.6/en/dba-dtrace-server.html)
 
-MySQL源码调用上述两个Dtrace的位置：
+MySQL source code calls the above two Dtrace locations:
 
 ```
 
@@ -57,12 +57,12 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   thd->profiling.start_new_query();
 #endif
 
-  /* DTRACE instrumentation, begin，start探针 */
+  /* DTRACE instrumentation, begin, start probe */
   MYSQL_COMMAND_START(thd->thread_id, command, &thd->security_ctx->priv_user[0], (char *) thd->security_ctx->host_or_ip);
 
 ...  
 ...
-  /* DTRACE instrumentation, end，End探针 */
+  /* DTRACE instrumentation, end，End probe */
   if (MYSQL_QUERY_DONE_ENABLED() || MYSQL_COMMAND_DONE_ENABLED())
   {
     int res MY_ATTRIBUTE((unused));
@@ -82,27 +82,26 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   DBUG_RETURN(error);
 }
 ```
-- start探针中四个参数分别为：
+- The four parameters in the start probe are:
 
-- thread_id : MySQL内部分配的线程ID，即MySQL的Connection ID
+- thread_id: MySQL internally assigned thread ID, i.e. MySQL Connection ID
 
-- command: SQL命令的枚举类型
+- command: Enumeration type of SQL command
 
-- priv_user: 连接的用户名
+- priv_user: Connected username
 
-- host_or_ip: 连接的客户端IP
+- host_or_ip: Connected Client IP
 
-end探针中只存在一个res参数，该参数为会话执行SQL的返回状态，非0表示SQL执行异常。
-## eBPF USDT如何实时识别MySQL异常访问来源?
+There is only one res parameter in the end probe, which is the return status of the session execution SQL. Non-zero indicates SQL execution exception.
+## How to identify MySQL exception referrers in real time with eBPF USDT?
 
-### 1）环境准备
+### 1）Environment preparation
 
-> 准备一台 Linux 机器，安装好g++和bcc
+> Prepare a Linux machine and install g ++ and bcc
 
-### 2）基于BCC工具实现探测MySQL5.6的Dtrace探针
-接下来我们将基于BCC，利用USDT写一个eBPF程序，实时全量采集MySQL的访问来源（User/Host）。
-
-#### a）使用BCC对探针进行探测
+### 2） Implement Dtrace probe for MySQL 5.6 based on BCC tool
+Next, we will write an eBPF program based on BCC and use USDT to collect all MySQL referrers (User/Host) in real time.
+#### a）Probe the probe with BCC
 
 ```C
 #!/usr/bin/python
@@ -155,8 +154,8 @@ usdt.enable_probe(probe = "command__done", fn_name = "trace_command__done")
 bpf = BPF(text = bpf_text, usdt_contexts = [usdt])
 bpf.trace_print()
 ```
-#### b）效果演示
-pid即为需要探测的mysqld的进程号，指定pid执行python invoke_static.py即可开启探测，当该mysqld有SQL执行时，该探针将触发并得到日志打印。如下示例：
+#### b） effect demonstration
+Pid is the process number of the mysqld that needs to be probed. Specify pid to execute python invoke_static.py to start probing. When the mysqld has SQL execution, the probe will trigger and get log printing. The following example:
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZkkeooXBBmnISdzWejIwWqn75BnfySs9jr9Pb8S5Yp9ibJKxxJyBiaadapaTJXWtLvPXjUjQMA3pa0g/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
@@ -168,10 +167,11 @@ pid即为需要探测的mysqld的进程号，指定pid执行python invoke_static
 
 ![](https://mmbiz.qpic.cn/mmbiz_png/dFRFrFfpIZkkeooXBBmnISdzWejIwWqnDSglTMZ0EROYMU7FAfItTxfj1MogkFyGJmBzNiaIfbibD7KVnhpqOPJQ/640?wx_fmt=png&from=appmsg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-从上面的演示中我们能看到，客户端和MySQL建立连接，显示当前连接的会话id、访问来源（user/host）、SQL Command、SQL执行开始时间、SQL结束时间、SQL是否正常执行完成（Res）等信息。然后我们针对采集上来的数据就可以做分析了：
-- 如果存在user和host为非业务网段或者非业务账号，说明存在异常来源访问。
-- 如果存SQL执行耗时过长，可能存在可疑账号在抽取数据。
+From the above demonstration, we can see that the Client and MySQL establish a connection, displaying the session id, referrer (user/host), SQL Command, SQL execution start time, SQL end time, and whether the SQL is completed normally (Res). Then we can analyze the collected data:
 
-## 总结
+- If the user and host are non-business network segments or non-business accounts, it means that there is abnormal source access.
+- If the SQL execution takes too long, there may be suspicious accounts extracting data.
 
-借助eBPF技术的强大能力，我们可以利用MySQL的USDT探针来捕获和深入分析与数据库SQL连接相关的操作活动。通过本文的详细阐述，您对否对eBPF技术在数据库性能监控和优化方面的应用有了更深层次的理解和认识？
+## summary
+
+With the power of eBPF technology, we can take advantage of MySQL's USDT probe to capture and deeply analyze operational activities related to database SQL connections. Through the detailed explanation of this article, have you gained a deeper understanding and awareness of the application of eBPF technology in database performance monitoring and optimization?
